@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>پروژه اسفندیار</title>
-  <!-- کتابخانه Supabase -->
+  <!-- بارگذاری کتابخانه Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; }
@@ -15,446 +15,253 @@
     .wrap { max-width: 1200px; margin: auto; padding: 20px; }
     .panel {
       background: white; border: 1px solid #e3e7ee; border-radius: 12px;
-      padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 20px;
+      padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin-bottom: 20px;
     }
-    h1, h2, h3 { margin-top: 0; color: #0f172a; }
-    input, select, textarea, button {
-      font: inherit; padding: 10px 14px; border: 1px solid #cbd5e1;
-      border-radius: 8px; width: 100%; margin-top: 6px; margin-bottom: 14px;
+    h2 { margin-top: 0; color: #0f172a; }
+    button, input, select, textarea {
+      font-family: inherit; font-size: 14px; padding: 8px 12px;
+      border: 1px solid #cbd5e1; border-radius: 8px; outline: none;
     }
     button {
-      background: #0284c7; color: white; border: none; cursor: pointer; font-weight: bold;
-      transition: background 0.2s;
+      background: #2563eb; color: white; border: none; cursor: pointer; font-weight: bold;
     }
-    button:hover { background: #0369a1; }
-    .btn-danger { background: #ef4444; }
-    .btn-danger:hover { background: #dc2626; }
-    .btn-secondary { background: #64748b; }
-    .btn-secondary:hover { background: #475569; }
+    button:hover { background: #1d4ed8; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: right; vertical-align: top; }
+    th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: right; vertical-align: middle; }
     th { background: #f8fafc; color: #334155; }
     .hidden { display: none !important; }
-    .flex { display: flex; gap: 10px; }
-    .flex-1 { flex: 1; }
-    .badge {
-      display: inline-block; padding: 2px 8px; border-radius: 999px;
-      font-size: 11px; font-weight: bold; background: #e0f2fe; color: #0369a1;
-    }
-    .file-link { display: inline-block; margin-top: 4px; font-size: 12px; color: #0284c7; text-decoration: underline; }
-    .loading-overlay {
-      position: fixed; inset: 0; background: rgba(255,255,255,0.8);
-      display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; z-index: 9999;
-    }
+    .flex { display: flex; gap: 10px; align-items: center; }
+    .space-between { justify-content: space-between; }
+    .alert { padding: 12px; border-radius: 8px; margin-bottom: 15px; background: #fee2e2; color: #991b1b; }
   </style>
 </head>
 <body>
-
-  <div id="loading" class="loading-overlay">در حال اتصال به پایگاه داده ابری...</div>
-
   <div class="wrap">
     <!-- بخش لاگین -->
-    <div id="loginSection" class="panel hidden" style="max-width: 450px; margin: 60px auto;">
-      <h2>ورود به پروژه اسفندیار</h2>
-      <p style="color: #64748b; font-size: 13px;">برای دسترسی به میزکار وارد شوید.</p>
-      <form id="loginForm">
-        <label>نام کاربری</label>
-        <input type="text" id="loginUser" required value="mahbod">
-        <label>رمز عبور</label>
-        <input type="password" id="loginPass" required value="@Aida1387@">
-        <button type="submit">ورود به سیستم</button>
-      </form>
+    <div id="loginPanel" class="panel" style="max-width: 400px; margin: 50px auto;">
+      <h2>ورود به سامانه اسفندیار</h2>
+      <div id="loginError" class="alert hidden"></div>
+      <div style="margin-bottom: 15px;">
+        <label>نام کاربری:</label><br>
+        <input type="text" id="loginUser" style="width: 100%; margin-top: 5px;" value="mahbod">
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label>رمز عبور:</label><br>
+        <input type="password" id="loginPass" style="width: 100%; margin-top: 5px;" value="@Aida1387@">
+      </div>
+      <button onclick="handleLogin()" style="width: 100%;">ورود به سیستم</button>
     </div>
 
-    <!-- بخش اصلی پنل مدیریت و کاربران -->
-    <div id="appSection" class="hidden">
-      <div class="panel flex" style="justify-content: space-between; align-items: center;">
-        <div>
-          <h2>پروژه اسفندیار</h2>
-          <span id="userInfo" class="badge"></span>
-        </div>
-        <div>
-          <button class="btn-secondary" onclick="logout()" style="width: auto; margin:0;">خروج از سیستم</button>
-        </div>
-      </div>
-
-      <!-- کنترل‌های ادمین -->
-      <div id="adminPanel" class="panel hidden">
-        <h3>مدیریت فعالیت‌ها و کاربران</h3>
+    <!-- بخش اصلی برنامه -->
+    <div id="appPanel" class="panel hidden">
+      <div class="flex space-between" style="margin-bottom: 20px;">
+        <h2>پروژه اسفندیار (سامانه ردیابی پیشرفت)</h2>
         <div class="flex">
-          <button onclick="openTaskModal()" class="flex-1">➕ اضافه کردن فعالیت جدید</button>
-          <button onclick="openUserModal()" class="btn-secondary flex-1">👥 مدیریت کاربران سیستم</button>
+          <span id="userInfo" style="font-weight: bold; color: #475569;"></span>
+          <button class="danger" onclick="handleLogout()">خروج</button>
         </div>
       </div>
 
-      <!-- جدول وظایف -->
-      <div class="panel">
-        <h3>فهرست فعالیت‌ها</h3>
-        <div style="overflow-x: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 60px;">ردیف</th>
-                <th>شرح کار</th>
-                <th style="width: 110px;">تاریخ انجام</th>
-                <th style="width: 120px;">پیگیری‌کننده</th>
-                <th>توضیحات و مدارک</th>
-                <th style="width: 150px;">پیشرفت کار</th>
-                <th id="thActions" style="width: 90px;" class="hidden">عملیات</th>
-              </tr>
-            </thead>
-            <tbody id="tasksTableBody">
-              <tr><td colspan="7" style="text-align: center;">در حال بارگذاری اطلاعات...</td></tr>
-            </tbody>
-          </table>
+      <div id="adminControls" class="hidden" style="margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 8px;">
+        <h3>مدیریت فعالیت‌ها و کاربران</h3>
+        <div class="flex" style="flex-wrap: wrap; gap: 10px;">
+          <input type="text" id="newTaskDesc" placeholder="شرح کار جدید..." style="flex: 2; min-width: 200px;">
+          <input type="text" id="newTaskDate" placeholder="تاریخ انجام (مثلا ۱۴۰۵/۰۲/۱۵)" style="flex: 1; min-width: 150px;">
+          <select id="newTaskAssignee" style="flex: 1; min-width: 150px;"></select>
+          <button onclick="addTask()">اضافه کردن فعالیت</button>
         </div>
+      </div>
+
+      <h3>لیست فعالیت‌ها</h3>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ردیف</th>
+              <th>شرح کار</th>
+              <th>تاریخ انجام</th>
+              <th>پیگیری‌کننده</th>
+              <th>توضیحات و مدارک</th>
+              <th>پیشرفت کار</th>
+              <th id="actionTh" class="hidden">مدیریت</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
       </div>
     </div>
-  </div>
-
-  <!-- مودال افزودن/ویرایش فعالیت -->
-  <div id="taskModal" class="panel hidden" style="position:fixed; top:20px; left:50%; transform:translateX(-50%); width: 90%; max-width:600px; z-index:1000; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-    <h3 id="taskModalTitle">افزودن فعالیت جدید</h3>
-    <form id="taskForm">
-      <input type="hidden" id="taskId">
-      <label>شرح کار</label>
-      <textarea id="taskDesc" rows="2" required></textarea>
-      <label>تاریخ انجام (شمسی)</label>
-      <input type="text" id="taskDate" placeholder="مثال: ۱۴۰۵/۰۲/۱۵" required>
-      <label>پیگیری‌کننده (کاربر مسئول)</label>
-      <select id="taskAssignee" required></select>
-      <label>توضیحات متنی</label>
-      <textarea id="taskDetails" rows="2"></textarea>
-      <label>آپلود مدرک/فایل (اختیاری)</label>
-      <input type="file" id="taskFile">
-      <div class="flex">
-        <button type="submit" class="flex-1">ذخیره فعالیت</button>
-        <button type="button" onclick="closeTaskModal()" class="btn-secondary flex-1">انصراف</button>
-      </div>
-    </form>
-  </div>
-
-  <!-- مودال مدیریت کاربران -->
-  <div id="userModal" class="panel hidden" style="position:fixed; top:20px; left:50%; transform:translateX(-50%); width: 90%; max-width:500px; z-index:1000; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-    <h3>مدیریت کاربران</h3>
-    <form id="userForm">
-      <label>نام کاربری جدید</label>
-      <input type="text" id="newUsername" required>
-      <label>رمز عبور</label>
-      <input type="password" id="newPassword" required>
-      <label>نقش کاربر</label>
-      <select id="newRole">
-        <option value="user">کاربر پیگیری‌کننده (فقط ویرایش پیشرفت کار خود)</option>
-        <option value="admin">مدیر (دسترسی کامل)</option>
-      </select>
-      <button type="submit">ایجاد کاربر جدید</button>
-    </form>
-    <h4>فهرست کاربران ثبت‌شده:</h4>
-    <div id="usersListContainer" style="max-height: 150px; overflow-y:auto; border:1px solid #e2e8f0; padding:10px; border-radius:8px; margin-bottom:14px;"></div>
-    <button type="button" onclick="closeUserModal()" class="btn-secondary">بستن پنجره</button>
   </div>
 
   <script>
-    // تنظیمات اتصال Supabase
-    const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
-    const SUPABASE_KEY = "GAPGPTMASKTOKENwy8q8umnmgX1X";
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // تنظیمات اتصال به Supabase شما
+    const SUPABASE_URL = 'https://bdieqelvtlcwlgjgylmb.supabase.co';
+    const SUPABASE_KEY = 'GAPGPTMASKTOKENpv9t4gwntxgX0X';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = null;
-    let tasksCache = [];
-    let usersCache = [];
+    let tasks = [];
+    let users = [];
 
-    window.addEventListener('DOMContentLoaded', async () => {
-      await initDatabaseAndAdmin();
-      checkSession();
-    });
-
-    // بررسی اولیه و اطمینان از وجود کاربر ادمین mahbod در دیتابیس
-    async function initDatabaseAndAdmin() {
-      try {
-        const { data: users, error } = await _supabase.from('app_users').select('*');
-        if (error || !users || users.length === 0) {
-          // اگر جدول خالی بود یا خطا داشت، ادمین پیش‌فرض را درج می‌کنیم
-          await _supabase.from('app_users').upsert([
-            { username: 'mahbod', password: '@Aida1387@', role: 'admin' }
-          ], { onConflict: 'username' });
-        }
-      } catch (e) {
-        console.error("Init check error:", e);
-      } finally {
-        document.getElementById('loading').classList.add('hidden');
-      }
-    }
-
-    // بررسی نشست ذخیره‌شده
-    function checkSession() {
-      const saved = sessionStorage.getItem('esfandiar_session');
-      if (saved) {
-        currentUser = JSON.parse(saved);
-        enterApp();
-      } else {
-        document.getElementById('loginSection').classList.remove('hidden');
-      }
-    }
-
-    // عملیات ورود
-    document.getElementById('loginForm').onsubmit = async (e) => {
-      e.preventDefault();
+    async function handleLogin() {
       const u = document.getElementById('loginUser').value.trim();
       const p = document.getElementById('loginPass').value.trim();
+      const errBox = document.getElementById('loginError');
 
-      const { data, error } = await _supabase.from('app_users').select('*').eq('username', u).single();
-      if (error || !data || data.password !== p) {
-        alert('نام کاربری یا رمز عبور اشتباه است.');
+      const { data, error } = await supabaseClient
+        .from('app_users')
+        .select('*')
+        .eq('username', u)
+        .eq('password', p)
+        .single();
+
+      if (error || !data) {
+        errBox.textContent = 'نام کاربری یا رمز عبور اشتباه است.';
+        errBox.classList.remove('hidden');
         return;
       }
 
+      errBox.classList.add('hidden');
       currentUser = data;
-      sessionStorage.setItem('esfandiar_session', JSON.stringify(currentUser));
-      document.getElementById('loginSection').classList.add('hidden');
-      enterApp();
-    };
-
-    function logout() {
-      sessionStorage.removeItem('esfandiar_session');
-      currentUser = null;
-      document.getElementById('appSection').classList.add('hidden');
-      document.getElementById('loginSection').classList.remove('hidden');
+      sessionStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
+      initApp();
     }
 
-    async function enterApp() {
-      document.getElementById('appSection').classList.remove('hidden');
-      document.getElementById('userInfo').textContent = `${currentUser.username} (${currentUser.role === 'admin' ? 'مدیر کل' : 'کاربر'})`;
-      
+    function handleLogout() {
+      currentUser = null;
+      sessionStorage.removeItem('esfandiar_user');
+      document.getElementById('appPanel').classList.add('hidden');
+      document.getElementById('loginPanel').classList.remove('hidden');
+    }
+
+    async function loadData() {
+      // دریافت کاربران
+      const uRes = await supabaseClient.from('app_users').select('*');
+      if (uRes.data) users = uRes.data;
+
+      // دریافت تسک‌ها
+      const tRes = await supabaseClient.from('tasks').select('*').order('id', { ascending: true });
+      if (tRes.data) tasks = tRes.data;
+
+      renderTasks();
+      renderAssignees();
+    }
+
+    async function initApp() {
+      const saved = sessionStorage.getItem('esfandiar_user');
+      if (!saved) {
+        document.getElementById('loginPanel').classList.remove('hidden');
+        document.getElementById('appPanel').classList.add('hidden');
+        return;
+      }
+      currentUser = JSON.parse(saved);
+      document.getElementById('loginPanel').classList.add('hidden');
+      document.getElementById('appPanel').classList.remove('hidden');
+      document.getElementById('userInfo').textContent = `کاربر: ${currentUser.name || currentUser.username} (${currentUser.role === 'admin' ? 'مدیر' : 'همکار'})`;
+
       if (currentUser.role === 'admin') {
-        document.getElementById('adminPanel').classList.remove('hidden');
-        document.getElementById('thActions').classList.remove('hidden');
+        document.getElementById('adminControls').classList.remove('hidden');
+        document.getElementById('actionTh').classList.remove('hidden');
+      } else {
+        document.getElementById('adminControls').classList.add('hidden');
+        document.getElementById('actionTh').classList.add('hidden');
       }
 
-      await loadUsersForSelect();
-      await loadTasks();
+      await loadData();
     }
 
-    async function loadUsersForSelect() {
-      const { data } = await _supabase.from('app_users').select('*');
-      usersCache = data || [];
-      const sel = document.getElementById('taskAssignee');
+    function renderAssignees() {
+      const sel = document.getElementById('newTaskAssignee');
+      if (!sel) return;
       sel.innerHTML = '';
-      usersCache.forEach(usr => {
+      users.forEach(u => {
         const opt = document.createElement('option');
-        opt.value = usr.username;
-        opt.textContent = usr.username;
+        opt.value = u.username;
+        opt.textContent = `${u.name || u.username} (${u.username})`;
         sel.appendChild(opt);
       });
     }
 
-    async function loadTasks() {
-      const { data, error } = await _supabase.from('tasks').select('*').order('row_index', { ascending: true });
-      if (error) {
-        console.error(error);
-        return;
-      }
-      tasksCache = data || [];
-      renderTasks();
-    }
-
     function renderTasks() {
-      const tbody = document.getElementById('tasksTableBody');
+      const tbody = document.getElementById('taskTableBody');
       tbody.innerHTML = '';
 
-      if (tasksCache.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #64748b;">هیچ فعالیتی ثبت نشده است.</td></tr>`;
+      if (tasks.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" style="text-align: center; color: #64748b;">هنوز فعالیتی ثبت نشده است.</td>`;
+        tbody.appendChild(tr);
         return;
       }
 
-      tasksCache.forEach((t, idx) => {
+      tasks.forEach((t, index) => {
         const tr = document.createElement('tr');
         const isAdmin = currentUser.role === 'admin';
-        const isAssignedToMe = t.assignee === currentUser.username;
-
-        let fileHtml = t.file_url ? `<br><a href="${t.file_url}" target="_blank" class="file-link">📎 مشاهده مدرک پیوست</a>` : '';
-        let detailsHtml = (t.details || '') + fileHtml;
-
-        let progressControl = '';
-        if (isAdmin || isAssignedToMe) {
-          progressControl = `
-            <div class="flex" style="gap:4px; align-items:center;">
-              <input type="text" id="prog_${t.id}" value="${t.progress || '0%'}" style="margin:0; padding:4px 8px; text-align:center;">
-              <button onclick="updateProgress('${t.id}')" style="margin:0; padding:4px 10px; font-size:12px;">ثبت</button>
-            </div>
-          `;
-        } else {
-          progressControl = `<span>${t.progress || '0%'}</span>`;
-        }
-
-        let actionsHtml = '';
-        if (isAdmin) {
-          actionsHtml = `
-            <td>
-              <button onclick="editTask('${t.id}')" style="padding:4px 8px; font-size:11px; margin-bottom:4px;">ویرایش</button>
-              <button onclick="deleteTask('${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:11px; margin:0;">حذف</button>
-            </td>
-          `;
-        } else {
-          actionsHtml = `<td class="hidden"></td>`;
-        }
+        // کاربر معمولی فقط تسک‌های خودش یا تسک‌هایی که assignee هستند را می‌تواند پیشرفتشان را عوض کند
+        const isMyTask = t.assignee === currentUser.username;
+        const canEditProgress = isAdmin || isMyTask;
 
         tr.innerHTML = `
-          <td>${idx + 1}</td>
-          <td><strong>${escapeHtml(t.description)}</strong></td>
-          <td>${escapeHtml(t.due_date)}</td>
-          <td><span class="badge">${escapeHtml(t.assignee)}</span></td>
-          <td>${escapeHtml(detailsHtml)}</td>
-          <td>${progressControl}</td>
-          ${actionsHtml}
+          <td>${index + 1}</td>
+          <td>${t.description || ''}</td>
+          <td>${t.due_date || ''}</td>
+          <td>${t.assignee || ''}</td>
+          <td><input type="text" value="${t.details || ''}" onchange="updateDetails(${t.id}, this.value)" ${canEditProgress ? '' : 'disabled'} style="width: 100%;"></td>
+          <td>
+            <select onchange="updateProgress(${t.id}, this.value)" ${canEditProgress ? '' : 'disabled'}>
+              <option value="انجام نشده" ${t.progress === 'انجام نشده' ? 'selected' : ''}>انجام نشده</option>
+              <option value="در حال انجام" ${t.progress === 'در حال انجام' ? 'selected' : ''}>در حال انجام</option>
+              <option value="تکمیل شده" ${t.progress === 'تکمیل شده' ? 'selected' : ''}>تکمیل شده</option>
+            </select>
+          </td>
+          ${isAdmin ? `<td><button class="danger" onclick="deleteTask(${t.id})">حذف</button></td>` : ''}
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // ثبت پیشرفت کار
-    async function updateProgress(id) {
-      const val = document.getElementById(`prog_${id}`).value.trim();
-      const { error } = await _supabase.from('tasks').update({ progress: val }).eq('id', id);
+    async function addTask() {
+      const desc = document.getElementById('newTaskDesc').value.trim();
+      const date = document.getElementById('newTaskDate').value.trim();
+      const assignee = document.getElementById('newTaskAssignee').value;
+
+      if (!desc) {
+        alert('لطفا شرح کار را وارد کنید.');
+        return;
+      }
+
+      const { error } = await supabaseClient.from('tasks').insert([
+        { description: desc, due_date: date, assignee: assignee, progress: 'انجام نشده', details: '' }
+      ]);
+
       if (error) {
-        alert('خطا در به‌روزرسانی پیشرفت: ' + error.message);
-      } else {
-        alert('پیشرفت کار با موفقیت ثبت شد.');
-        await loadTasks();
+        alert('خطا در ثبت فعالیت: ' + error.message);
+        return;
       }
+
+      document.getElementById('newTaskDesc').value = '';
+      document.getElementById('newTaskDate').value = '';
+      loadData();
     }
 
-    // مدیریت مودال فعالیت
-    function openTaskModal(task = null) {
-      document.getElementById('taskModal').classList.remove('hidden');
-      if (task) {
-        document.getElementById('taskModalTitle').textContent = 'ویرایش فعالیت';
-        document.getElementById('taskId').value = task.id;
-        document.getElementById('taskDesc').value = task.description;
-        document.getElementById('taskDate').value = task.due_date;
-        document.getElementById('taskAssignee').value = task.assignee;
-        document.getElementById('taskDetails').value = task.details || '';
-      } else {
-        document.getElementById('taskModalTitle').textContent = 'افزودن فعالیت جدید';
-        document.getElementById('taskForm').reset();
-        document.getElementById('taskId').value = '';
-      }
+    async function updateProgress(id, val) {
+      await supabaseClient.from('tasks').update({ progress: val }).eq('id', id);
+      loadData();
     }
 
-    function closeTaskModal() {
-      document.getElementById('taskModal').classList.add('hidden');
-    }
-
-    document.getElementById('taskForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('taskId').value;
-      const description = document.getElementById('taskDesc').value;
-      const due_date = document.getElementById('taskDate').value;
-      const assignee = document.getElementById('taskAssignee').value;
-      const details = document.getElementById('taskDetails').value;
-      const fileInput = document.getElementById('taskFile');
-
-      let file_url = null;
-      if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        const fileName = `${Date.now()}_${file.name}`;
-        const { data: uploadData, error: uploadErr } = await _supabase.storage.from('task_files').upload(fileName, file);
-        if (uploadErr) {
-          alert('خطا در آپلود فایل: ' + uploadErr.message);
-          return;
-        }
-        const { data: publicURL } = _supabase.storage.from('task_files').getPublicUrl(fileName);
-        file_url = publicURL.publicUrl;
-      }
-
-      const taskData = { description, due_date, assignee, details };
-      if (file_url) taskData.file_url = file_url;
-
-      if (id) {
-        // ویرایش
-        const { error } = await _supabase.from('tasks').update(taskData).eq('id', id);
-        if (error) alert('خطا: ' + error.message);
-        else { closeTaskModal(); await loadTasks(); }
-      } else {
-        // ایجاد جدید
-        taskData.row_index = tasksCache.length + 1;
-        taskData.progress = '0%';
-        const { error } = await _supabase.from('tasks').insert([taskData]);
-        if (error) alert('خطا: ' + error.message);
-        else { closeTaskModal(); await loadTasks(); }
-      }
-    };
-
-    async function editTask(id) {
-      const task = tasksCache.find(t => t.id === id);
-      if (task) openTaskModal(task);
+    async function updateDetails(id, val) {
+      await supabaseClient.from('tasks').update({ details: val }).eq('id', id);
+      loadData();
     }
 
     async function deleteTask(id) {
-      if (confirm('آیا از حذف این فعالیت مطمئن هستید؟')) {
-        const { error } = await _supabase.from('tasks').delete().eq('id', id);
-        if (error) alert('خطا در حذف: ' + error.message);
-        else await loadTasks();
-      }
+      if (!confirm('آیا از حذف این فعالیت اطمینان دارید؟')) return;
+      await supabaseClient.from('tasks').delete().eq('id', id);
+      loadData();
     }
 
-    // مدیریت کاربران
-    function openUserModal() {
-      document.getElementById('userModal').classList.remove('hidden');
-      renderUsersList();
-    }
-
-    function closeUserModal() {
-      document.getElementById('userModal').classList.add('hidden');
-    }
-
-    async function renderUsersList() {
-      const { data } = await _supabase.from('app_users').select('*');
-      const container = document.getElementById('usersListContainer');
-      container.innerHTML = '';
-      (data || []).forEach(u => {
-        const div = document.createElement('div');
-        div.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f1f5f9;";
-        div.innerHTML = `<span><strong>${u.username}</strong> (${u.role})</span>`;
-        if (u.username !== 'mahbod') {
-          const delBtn = document.createElement('button');
-          delBtn.textContent = 'حذف';
-          delBtn.className = 'btn-danger';
-          delBtn.style.cssText = "width:auto; padding:2px 8px; font-size:11px; margin:0;";
-          delBtn.onclick = async () => {
-            if (confirm(`حذف کاربر ${u.username}؟`)) {
-              await _supabase.from('app_users').delete().eq('username', u.username);
-              renderUsersList();
-              loadUsersForSelect();
-            }
-          };
-          div.appendChild(delBtn);
-        }
-        container.appendChild(div);
-      });
-    }
-
-    document.getElementById('userForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('newUsername').value.trim();
-      const password = document.getElementById('newPassword').value.trim();
-      const role = document.getElementById('newRole').value;
-
-      const { error } = await _supabase.from('app_users').insert([{ username, password, role }]);
-      if (error) {
-        alert('خطا در ایجاد کاربر (احتمالاً نام کاربری تکراری است): ' + error.message);
-      } else {
-        alert('کاربر جدید با موفقیت ساخته شد.');
-        document.getElementById('userForm').reset();
-        renderUsersList();
-        loadUsersForSelect();
-      }
-    };
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    // بررسی ورود اولیه هنگام باز شدن صفحه
+    window.onload = initApp;
   </script>
 </body>
 </html>
