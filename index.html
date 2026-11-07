@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>پروژه احداث ساختمان اسفندیار - شرکت مهراصل</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- لود پایدار کتابخانه Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
     <style>
         :root {
             --primary: #1e3a8a;
@@ -18,19 +19,8 @@
             --danger: #dc2626;
         }
 
-        * {
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Tahoma, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            padding: 16px;
-            direction: rtl;
-        }
+        * { box-sizing: border-box; font-family: Tahoma, system-ui, sans-serif; margin: 0; padding: 0; }
+        body { background-color: var(--bg); color: var(--text); padding: 16px; direction: rtl; }
 
         .header-card {
             background: var(--card);
@@ -46,276 +36,110 @@
             gap: 16px;
         }
 
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
+        .header-brand { display: flex; align-items: center; gap: 16px; }
+        .header-brand img { height: 50px; max-width: 130px; object-fit: contain; }
+        .header-title h1 { font-size: 1.25rem; color: var(--primary); margin-bottom: 4px; }
+        .header-title p { font-size: 0.85rem; color: #64748b; }
 
-        .header-brand img {
-            height: 55px;
-            object-fit: contain;
-        }
-
-        .header-title h1 {
-            font-size: 1.25rem;
-            color: var(--primary);
-            margin-bottom: 4px;
-        }
-
-        .header-title p {
-            font-size: 0.85rem;
-            color: #64748b;
-        }
-
-        .user-panel {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .badge {
-            background: #e0e7ff;
-            color: #3730a3;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
+        .user-panel { display: flex; align-items: center; gap: 12px; }
+        .badge { background: #e0e7ff; color: #3730a3; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
 
         #login-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.75);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            backdrop-filter: blur(4px);
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
         }
-
         .login-box {
-            background: var(--card);
-            padding: 30px;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            text-align: center;
+            background: var(--card); padding: 32px; border-radius: 16px;
+            width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); text-align: center;
         }
+        .login-box h2 { font-size: 1.3rem; color: var(--primary); margin-bottom: 20px; }
 
-        .login-box h2 {
-            font-size: 1.3rem;
-            color: var(--primary);
-            margin-bottom: 20px;
-        }
+        .form-group { margin-bottom: 16px; text-align: right; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: #475569; font-weight: 500; }
+        .form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff; }
+        .form-control:focus { border-color: var(--primary); }
 
-        .form-group {
-            margin-bottom: 16px;
-            text-align: right;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 0.85rem;
-            color: #475569;
-            font-weight: 500;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 9px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            outline: none;
-            font-size: 0.9rem;
-            background: white;
-        }
-
-        .form-control:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
-        }
-
-        .shamsi-group {
-            display: flex;
-            gap: 6px;
-        }
-
-        .shamsi-group select {
-            flex: 1;
-            padding: 8px 4px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.85rem;
-            background: white;
-        }
+        .shamsi-group { display: flex; gap: 4px; }
+        .shamsi-group select { flex: 1; padding: 6px 2px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.82rem; background: #fff; }
 
         .btn {
-            padding: 9px 16px;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
+            padding: 8px 16px; border: none; border-radius: 6px; font-size: 0.88rem;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
         }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            width: 100%;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
+        .btn-primary { background: var(--primary); color: white; width: 100%; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: white; }
 
         .table-container {
-            background: var(--card);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            border: 1px solid var(--border);
-            overflow-x: auto;
-            margin-bottom: 24px;
+            background: var(--card); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            border: 1px solid var(--border); overflow-x: auto; margin-bottom: 24px;
         }
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: right; }
+        th { background: #f1f5f9; color: #334155; padding: 12px 14px; font-weight: 700; border-bottom: 2px solid var(--border); white-space: nowrap; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        tr:hover td { background-color: #f8fafc; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.88rem;
-            text-align: right;
-        }
-
-        th {
-            background: #f1f5f9;
-            color: #334155;
-            padding: 12px 14px;
-            font-weight: 700;
-            border-bottom: 2px solid var(--border);
-            white-space: nowrap;
-        }
-
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e2e8f0;
-            vertical-align: middle;
-        }
-
-        tr:hover td {
-            background-color: #f8fafc;
-        }
-
-        .cell-readonly {
-            background-color: var(--muted-bg) !important;
-            color: #475569;
-            cursor: not-allowed;
-        }
-
-        .progress-box {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .progress-slider {
-            flex-grow: 1;
-        }
-
-        .file-link {
-            display: inline-block;
-            background: #e0f2fe;
-            color: #0369a1;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.78rem;
-            text-decoration: none;
-            margin: 2px;
-        }
-
-        .file-link:hover {
-            background: #bae6fd;
-        }
-
-        .error-msg {
-            color: var(--danger);
-            font-size: 0.85rem;
-            margin-top: 10px;
-            display: none;
-        }
+        .cell-readonly { background-color: var(--muted-bg) !important; color: #334155; }
+        .progress-box { display: flex; align-items: center; gap: 8px; }
+        .progress-slider { flex-grow: 1; }
+        .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
 
         .modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-            padding: 16px;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
         }
+        .modal-content { background: white; border-radius: 12px; padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
 
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            width: 100%;
-            >سامانه پیگیری و مدیریت فعالیت‌های اجرایی - شرکت مهراصل</p>
+    <header class="header-card">
+        <div class="header-brand">
+            <img src="logo.webp" alt="شرکت مهراصل" onerror="this.onerror=null; this.src='images.webp';">
+            <div class="header-title">
+                <h1>پروژه احداث ساختمان اسفندیار</h1>
+                <p>سامانه پیگیری و مدیریت فعالیت‌های اجرایی - شرکت مهراصل</p>
             </div>
         </div>
         <div class="user-panel">
-            <span id="current-user-info" class="badge">در حال بارگذاری...</span>
+            <span id="current-user-info" class="badge">در حال ورود...</span>
             <button id="btn-add-task" class="btn btn-success" style="display: none;" onclick="openNewTaskModal()">+ فعالیت جدید</button>
             <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="logout()">خروج</button>
         </div>
     </header>
 
     <div class="table-container">
-        <table id="tasks-table">
+        <table>
             <thead>
                 <tr>
                     <th style="width: 45px; text-align: center;">ردیف</th>
                     <th>شرح فعالیت</th>
-                    <th style="width: 130px;">پیگیری‌کننده</th>
+                    <th style="width: 140px;">پیگیری‌کننده</th>
                     <th style="width: 110px;">تاریخ ثبت</th>
                     <th style="width: 110px;">مهلت انجام</th>
-                    <th style="width: 160px;">تاریخ انجام</th>
-                    <th style="width: 230px;">اقدامات و درصد</th>
+                    <th style="width: 190px;">تاریخ انجام</th>
+                    <th style="width: 250px;">اقدامات و درصد</th>
                     <th>توضیحات و فایل‌ها</th>
-                    <th id="actions-header" style="width: 80px; text-align: center; display: none;">عملیات</th>
+                    <th id="actions-header" style="width: 70px; text-align: center; display: none;">عملیات</th>
                 </tr>
             </thead>
             <tbody id="tasks-body">
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">در حال دریافت اطلاعات از سرور...</td>
+                    <td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">در حال دریافت اطلاعات...</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <!-- پنجره لاگین -->
+    <!-- دیالوگ ورود -->
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
             <div class="form-group">
-                <label>انتخاب نقش / کاربر:</label>
-                <select id="login-user-select" class="form-control" onchange="onUserSelectionChange()">
-                    <option value="" disabled selected>-- لطفاً کاربر را انتخاب کنید --</option>
+                <label>انتخاب کاربر:</label>
+                <select id="login-user-select" class="form-control" onchange="togglePasswordField()">
+                    <option value="" disabled selected>-- لطفاً انتخاب کنید --</option>
                     <option value="user1">کاربر یک (رییس کارگاه)</option>
                     <option value="user2">کاربر دو (مهندس اجرا)</option>
                     <option value="user3">کاربر سه (دفتر فنی)</option>
@@ -323,6 +147,335 @@
                     <option value="mahbod">مهندس مهبد (مدیر پروژه)</option>
                 </select>
             </div>
-
             <div class="form-group" id="password-group" style="display: none;">
-                <label>رمز عبور 
+                <label>رمز عبور مدیر:</label>
+                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور...">
+            </div>
+            <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none;"></p>
+            <button type="button" class="btn btn-primary" onclick="submitLogin()">ورود</button>
+        </div>
+    </div>
+
+    <!-- فرم ثبت تسک جدید -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 16px; color: var(--primary);">ثبت فعالیت جدید</h3>
+            <form onsubmit="handleSaveTask(event)">
+                <div class="form-group">
+                    <label>شرح فعالیت:</label>
+                    <textarea id="task-desc" class="form-control" rows="2" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>پیگیری‌کننده:</label>
+                    <select id="task-assignee" class="form-control" required>
+                        <option value="user1">کاربر یک (رییس کارگاه)</option>
+                        <option value="user2">کاربر دو (مهندس اجرا)</option>
+                        <option value="user3">کاربر سه (دفتر فنی)</option>
+                        <option value="user4">کاربر چهار (ایمنی)</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>تاریخ ثبت:</label>
+                        <div class="shamsi-group">
+                            <select id="reg-y"></select>
+                            <select id="reg-m"></select>
+                            <select id="reg-d"></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>مهلت انجام:</label>
+                        <div class="shamsi-group">
+                            <select id="due-y"></select>
+                            <select id="due-m"></select>
+                            <select id="due-d"></select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>توضیحات:</label>
+                    <textarea id="task-details" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>پیوست فایل‌ها:</label>
+                    <input type="file" id="task-files" class="form-control" multiple>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="btn" style="background: #cbd5e1;" onclick="closeModal()">انصراف</button>
+                    <button type="submit" id="btn-save" class="btn btn-primary" style="width: auto;">ذخیره فعالیت</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE";
+        const db = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+        const USERS = {
+            'mahbod': { name: 'مهندس مهبد', title: 'مدیر پروژه', role: 'admin' },
+            'user1': { name: 'کاربر یک', title: 'رییس کارگاه', role: 'user' },
+            'user2': { name: 'کاربر دو', title: 'مهندس اجرا', role: 'user' },
+            'user3': { name: 'کاربر سه', title: 'دفتر فنی', role: 'user' },
+            'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' }
+        };
+
+        const MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
+        let currentUser = null;
+        let tasks = [];
+
+        function toJalali(gy, gm, gd) {
+            const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+            let gy2 = (gm > 2) ? (gy + 1) : gy;
+            let days = 355666 + (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + g_d_m[gm - 1];
+            let jy = -1595 + (33 * Math.floor(days / 12053));
+            days %= 12053;
+            jy += 4 * Math.floor(days / 1461);
+            days %= 1461;
+            if (days > 365) { jy += Math.floor((days - 1) / 365); days = (days - 1) % 365; }
+            let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+            let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+            return { y: jy, m: String(jm).padStart(2, '0'), d: String(jd).padStart(2, '0') };
+        }
+
+        function initShamsiSelect(prefix, def) {
+            const yEl = document.getElementById(`${prefix}-y`);
+            const mEl = document.getElementById(`${prefix}-m`);
+            const dEl = document.getElementById(`${prefix}-d`);
+            yEl.innerHTML = [1403, 1404, 1405, 1406, 1407].map(y => `<option value="${y}">${y}</option>`).join('');
+            mEl.innerHTML = MONTHS.map((m, i) => `<option value="${String(i+1).padStart(2,'0')}">${m}</option>`).join('');
+            dEl.innerHTML = Array.from({length:31}, (_, i) => `<option value="${String(i+1).padStart(2,'0')}">${i+1}</option>`).join('');
+            if (def) {
+                yEl.value = def.y;
+                mEl.value = def.m;
+                dEl.value = def.d;
+            }
+        }
+
+        function togglePasswordField() {
+            const val = document.getElementById('login-user-select').value;
+            document.getElementById('password-group').style.display = (val === 'mahbod') ? 'block' : 'none';
+        }
+
+        function submitLogin() {
+            const val = document.getElementById('login-user-select').value;
+            const pass = document.getElementById('login-password').value;
+            const err = document.getElementById('login-error');
+
+            if (!val) {
+                err.innerText = 'لطفاً کاربر را انتخاب کنید.';
+                err.style.display = 'block';
+                return;
+            }
+            if (val === 'mahbod' && pass !== '@Aida1387@') {
+                err.innerText = 'رمز عبور مدیر صحیح نیست.';
+                err.style.display = 'block';
+                return;
+            }
+
+            currentUser = { key: val, ...USERS[val] };
+            localStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
+            document.getElementById('login-modal').style.display = 'none';
+            setupInterface();
+            fetchTasks();
+        }
+
+        function logout() {
+            localStorage.removeItem('esfandiar_user');
+            location.reload();
+        }
+
+        function setupInterface() {
+            document.getElementById('current-user-info').innerText = `${currentUser.name} (${currentUser.title})`;
+            const isAdmin = currentUser.role === 'admin';
+            document.getElementById('btn-add-task').style.display = isAdmin ? 'inline-block' : 'none';
+            document.getElementById('actions-header').style.display = isAdmin ? 'table-cell' : 'none';
+        }
+
+        async function fetchTasks() {
+            if (!db) {
+                document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در لود کتابخانه ارتباطی پایگاه داده</td></tr>';
+                return;
+            }
+            const { data, error } = await db.from('tasks').select('*').order('id', { ascending: true });
+            if (error) {
+                document.getElementById('tasks-body').innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">خطای پایگاه‌داده: ${error.message}</td></tr>`;
+                return;
+            }
+            tasks = data || [];
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tasks-body');
+            if (tasks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#64748b;">هیچ فعالیتی ثبت نشده است.</td></tr>';
+                return;
+            }
+
+            const isAdmin = currentUser.role === 'admin';
+            tbody.innerHTML = tasks.map((t, idx) => {
+                const canEdit = isAdmin || (t.assignee === currentUser.key);
+                const readOnlyClass = !isAdmin ? 'cell-readonly' : '';
+                const assigneeName = USERS[t.assignee]?.title || t.assignee;
+
+                return `
+                    <tr>
+                        <td style="text-align:center;font-weight:bold;">${idx + 1}</td>
+                        <td class="${readOnlyClass}">${t.description || '-'}</td>
+                        <td class="${readOnlyClass}"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
+                        <td class="${readOnlyClass}" style="white-space:nowrap;">${t.created_date || '-'}</td>
+                        <td class="${readOnlyClass}" style="white-space:nowrap;">${t.due_date || '-'}</td>
+                        <td class="${!canEdit ? 'cell-readonly' : ''}">
+                            ${canEdit ? `
+                                <div class="shamsi-group">
+                                    <select onchange="saveDate(${t.id}, 'y', this.value)">
+                                        ${[1404, 1405, 1406, 1407].map(y => `<option value="${y}" ${(t.completion_date||'').startsWith(String(y))?'selected':''}>${y}</option>`).join('')}
+                                    </select>
+                                    <select onchange="saveDate(${t.id}, 'm', this.value)">
+                                        ${MONTHS.map((m, i) => {
+                                            const v = String(i+1).padStart(2,'0');
+                                            return `<option value="${v}" ${(t.completion_date||'').includes(`/${v}/`)?'selected':''}>${m}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <select onchange="saveDate(${t.id}, 'd', this.value)">
+                                        ${Array.from({length:31}, (_, i) => {
+                                            const v = String(i+1).padStart(2,'0');
+                                            return `<option value="${v}" ${(t.completion_date||'').endsWith(`/${v}`)?'selected':''}>${i+1}</option>`;
+                                        }).join('')}
+                                    </select>
+                                </div>
+                            ` : `<span>${t.completion_date || '-'}</span>`}
+                        </td>
+                        <td class="${!canEdit ? 'cell-readonly' : ''}">
+                            <div class="progress-box">
+                                <input type="range" class="progress-slider" min="0" max="100" value="${t.progress || 0}"
+                                    onchange="updateField(${t.id}, 'progress', parseInt(this.value))"
+                                    oninput="this.nextElementSibling.innerText = this.value + '%'"
+                                    ${!canEdit ? 'disabled' : ''}>
+                                <span style="font-size:0.8rem;font-weight:bold;min-width:32px;">${t.progress || 0}%</span>
+                            </div>
+                            <input type="text" class="form-control" style="font-size:0.8rem;margin-top:6px;padding:4px;"
+                                value="${t.actions || ''}" placeholder="شرح اقدام..."
+                                onchange="updateField(${t.id}, 'actions', this.value)"
+                                ${!canEdit ? 'disabled' : ''}>
+                        </td>
+                        <td class="${readOnlyClass}">
+                            <div style="font-size:0.8rem;margin-bottom:4px;">${t.details || '-'}</div>
+                            ${(t.files || []).map(f => `<a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>`).join('')}
+                        </td>
+                        ${isAdmin ? `
+                            <td style="text-align:center;">
+                                <button class="btn btn-danger" style="padding:4px 8px;font-size:0.75rem;" onclick="removeTask(${t.id})">حذف</button>
+                            </td>
+                        ` : ''}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateField(id, col, val) {
+            const patch = {}; patch[col] = val;
+            const { error } = await db.from('tasks').update(patch).eq('id', id);
+            if (error) alert('خطا در ذخیره تغییرات: ' + error.message);
+        }
+
+        async function saveDate(id, part, val) {
+            const t = tasks.find(x => x.id === id);
+            let p = (t.completion_date || '1405/01/01').split('/');
+            if (p.length !== 3) p = ['1405', '01', '01'];
+            if (part === 'y') p[0] = val;
+            if (part === 'm') p[1] = val;
+            if (part === 'd') p[2] = val;
+            const str = p.join('/');
+            t.completion_date = str;
+            await updateField(id, 'completion_date', str);
+        }
+
+        function openNewTaskModal() {
+            const now = new Date();
+            const jToday = toJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+            initShamsiSelect('reg', jToday);
+            initShamsiSelect('due', jToday);
+            document.getElementById('task-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('task-modal').style.display = 'none';
+        }
+
+        async function handleSaveTask(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save');
+            btn.innerText = 'در حال ذخیره...';
+            btn.disabled = true;
+
+            const desc = document.getElementById('task-desc').value;
+            const assignee = document.getElementById('task-assignee').value;
+            const details = document.getElementById('task-details').value;
+            const regDate = `${document.getElementById('reg-y').value}/${document.getElementById('reg-m').value}/${document.getElementById('reg-d').value}`;
+            const dueDate = `${document.getElementById('due-y').value}/${document.getElementById('due-m').value}/${document.getElementById('due-d').value}`;
+            const fileInput = document.getElementById('task-files');
+
+            let uploaded = [];
+            if (fileInput.files.length > 0) {
+                for (let file of fileInput.files) {
+                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                    const filePath = `${Date.now()}_${cleanName}`;
+                    const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
+                    if (!upErr) {
+                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                        uploaded.push({ name: file.name, url: data.publicUrl });
+                    }
+                }
+            }
+
+            const { error } = await db.from('tasks').insert([{
+                description: desc,
+                assignee: assignee,
+                created_date: regDate,
+                due_date: dueDate,
+                details: details,
+                files: uploaded,
+                progress: 0,
+                actions: '',
+                completion_date: ''
+            }]);
+
+            btn.innerText = 'ذخیره فعالیت';
+            btn.disabled = false;
+
+            if (error) {
+                alert('خطا در ثبت فعالیت: ' + error.message);
+            } else {
+                closeModal();
+                fetchTasks();
+            }
+        }
+
+        async function removeTask(id) {
+            if (!confirm('آیا از حذف این فعالیت اطمینان دارید؟')) return;
+            const { error } = await db.from('tasks').delete().eq('id', id);
+            if (!error) fetchTasks();
+            else alert('خطا در حذف: ' + error.message);
+        }
+
+        window.onload = () => {
+            const saved = localStorage.getItem('esfandiar_user');
+            if (saved) {
+                try {
+                    currentUser = JSON.parse(saved);
+                    document.getElementById('login-modal').style.display = 'none';
+                    setupInterface();
+                    fetchTasks();
+                    return;
+                } catch(e) {
+                    localStorage.removeItem('esfandiar_user');
+                }
+            }
+            document.getElementById('login-modal').style.display = 'flex';
+        };
+    </script>
+</body>
+</html>
