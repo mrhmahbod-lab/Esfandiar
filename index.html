@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>پروژه اسفندیار</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #f3f5f9; color: #172033;
+      font: 14px/1.8 Tahoma, 'Segoe UI', Arial, sans-serif;
+    }
+    .wrap { max-width: 1200px; margin: auto; padding: 20px; }
+    .panel {
+      background: white; border: 1px solid #e3e7ee; border-radius: 16px;
+      padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; color: #0f172a; }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    .muted { color: #64748b; }
+    .top, .toolbar, .actions {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .top { justify-content: space-between; margin-bottom: 18px; }
+    .toolbar { margin: 18px 0; }
+    button {
+      border: 0; border-radius: 9px; padding: 9px 15px;
+      background: #155eef; color: white; font: inherit; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+    }
+    button.secondary { background: #e9eef8; color: #20304c; }
+    button.danger { background: #fff0f0; color: #b42318; }
+    button.quick { background: #10b981; color: white; width: 100%; margin-top: 8px; }
+    input, select, textarea {
+      width: 100%; padding: 10px; border: 1px solid #cbd5e1;
+      border-radius: 9px; font: inherit; background: white;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    label { display: block; margin: 12px 0; font-weight: bold; }
+    label input, label select, label textarea {
+      display: block; margin-top: 5px; font-weight: normal;
+    }
+    .login { max-width: 420px; margin: 8vh auto; }
+    .hint { background: #eef5ff; border-radius: 9px; padding: 12px; line-height: 1.9; }
+    .hidden { display: none !important; }
+    .tablebox { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td {
+      padding: 12px; text-align: right; vertical-align: top;
+      border-bottom: 1px solid #e9edf3;
+    }
+    th { background: #f8fafc; color: #475569; white-space: nowrap; font-weight: 600; }
+    td:nth-child(2) { min-width: 180px; }
+    td:nth-child(5) { min-width: 230px; }
+    td:nth-child(6) { min-width: 185px; }
+    
+    .file-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 8px;
+      border-radius: 6px; font-size: 12px; margin: 3px 2px; text-decoration: none; color: #0369a1;
+    }
+    .file-badge:hover { background: #e2e8f0; }
+    .files-list { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+    
+    .small { font-size: 13px; }
+    .progress { height: 8px; background: #e9eef8; border-radius: 8px; margin: 6px 0; overflow: hidden; }
+    .progress span {
+      display: block; height: 100%; background: #10b981; border-radius: 8px;
+    }
+    dialog {
+      width: min(94vw, 560px); max-height: 90vh; overflow: auto;
+      border: 0; border-radius: 16px; padding: 22px; box-shadow: 0 20px 70px rgba(0,0,0,0.2);
+    }
+    dialog::backdrop { background: rgba(16,24,40,0.6); }
+    .formbuttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .shamsi-inputs { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 6px; margin-top: 5px; }
+
+    @media (max-width: 650px) {
+      .wrap { padding: 10px; }
+      .panel { padding: 15px; }
+      .toolbar input { flex-basis: 100%; }
+      table { min-width: 0; }
+      thead { display: none; }
+      tbody, tr, td { display: block; width: 100%; }
+      tr {
+        border: 1px solid #e2e8f0; border-radius: 12px;
+        margin: 12px 0; padding: 12px; background: #fafbfc;
+      }
+      td { display: flex; gap: 10px; justify-content: space-between; border: 0; padding: 6px 0; }
+      td::before { content: attr(data-label); font-weight: bold; min-width: 100px; color: #64748b; }
+      td > div { flex: 1; min-width: 0; }
+      .empty::before { content: none; }
+      .row { grid-template-columns: 1fr; gap: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- صفحه ورود -->
+    <section id="loginPage" class="panel login">
+      <h1>پروژه اسفندیار</h1>
+      <p class="muted">ورود به پنل مدیریت و پیگیری</p>
+      
+      <form id="loginForm">
+        <label>نام کاربری <input id="loginUser" autocomplete="username" value="admin" required></label>
+        <label>رمز عبور <input id="loginPass" type="password" autocomplete="current-password" value="123456" required></label>
+        <button type="submit" style="width:100%; margin-top:10px;">ورود دستی</button>
+      </form>
+
+      <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 12px;">
+        <button type="button" class="quick" onclick="quickLogin('admin')">⚡ ورود سریع با ۱ کلیک (مدیر)</button>
+        <button type="button" class="quick" style="background:#0284c7;" onclick="quickLogin('ali')">⚡ ورود سریع با ۱ کلیک (کاربر علی)</button>
+      </div>
+
+      <div class="hint small" style="margin-top:15px;">
+        👑 مدیر: نام <b>admin</b> | رمز: <b>123456</b><br>
+        👤 کاربر: نام <b>ali</b> | رمز: <b>123456</b>
+      </div>
+    </section>
+
+    <!-- صفحه اصلی برنامه -->
+    <main id="app" class="hidden">
+      <div class="top">
+        <div>
+          <h1>پروژه اسفندیار</h1>
+          <div id="welcome" class="muted"></div>
+        </div>
+        <button id="logout" class="secondary">خروج از حساب</button>
+      </div>
+
+      <section class="panel">
+        <div class="toolbar">
+          <input id="search" placeholder="🔍 جست‌وجو در کارها، افراد، توضیحات..." aria-label="جست‌وجو" style="max-width:320px;">
+          <button id="addTask" class="hidden">➕ اضافه کردن فعالیت</button>
+          <button id="addUser" class="secondary hidden">👤 تعریف کاربر جدید</button>
+          <button id="showHistory" class="secondary hidden">📜 تاریخچه تغییرات</button>
+        </div>
+        <div class="tablebox">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:50px;">ردیف</th>
+                <th>شرح کار</th>
+                <th style="width:120px;">تاریخ انجام</th>
+                <th style="width:120px;">پیگیری‌کننده</th>
+                <th>توضیحات و مدارک</th>
+                <th style="width:190px;">پیشرفت کار</th>
+                <th id="actionHead" class="hidden" style="width:120px;">عملیات</th>
+              </tr>
+            </thead>
+            <tbody id="taskRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- دیالوگ افزودن و ویرایش فعالیت -->
+  <dialog id="taskDialog">
+    <form id="taskForm">
+      <h2 id="taskTitle">ثبت فعالیت جدید</h2>
+      <label>شرح کار <input id="description" required maxlength="300" placeholder="مثال: خرید و تخلیه میلگردها"></label>
+      
+      <div class="row">
+        <div>
+          <label>تاریخ انجام (شمسی):</label>
+          <div class="shamsi-inputs">
+            <input id="shamsiDay" type="number" min="1" max="31" placeholder="روز" required>
+            <select id="shamsiMonth" required>
+              <option value="1">فروردین</option><option value="2">اردیبهشت</option><option value="3">خرداد</option>
+              <option value="4">تیر</option><option value="5">مرداد</option><option value="6">شهریور</option>
+              <option value="7">مهر</option><option value="8">آبان</option><option value="9">آذر</option>
+              <option value="10">دی</option><option value="11">بهمن</option><option value="12">اسفند</option>
+            </select>
+            <input id="shamsiYear" type="number" min="1400" max="1420" value="1403" placeholder="سال" required>
+          </div>
+        </div>
+        <label>پیگیری‌کننده <select id="assignee" required></select></label>
+      </div>
+
+      <label>توضیحات <textarea id="details" placeholder="توضیحات تکمیلی..."></textarea></label>
+      
+      <label>آپلود مدارک و نقشه‌ها (از گالری، پوشه کامپیوتر یا PDF):
+        <input type="file" id="fileUploader" multiple style="margin-top:6px; background:#f8fafc;">
+      </label>
+      <div id="uploadedFilesPreview" class="files-list"></div>
+
+      <div class="formbuttons">
+        <button type="button" class="secondary" onclick="taskDialog.close()">انصراف</button>
+        <button type="submit">ذخیره فعالیت</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- دیالوگ تغییر درصد پیشرفت -->
+  <dialog id="progressDialog">
+    <form id="progressForm">
+      <h2>به‌روزرسانی پیشرفت کار</h2>
+      <label>درصد پیشرفت (۰ تا ۱۰۰٪)
+        <input id="percent" type="number" min="0" max="100" step="5" required>
+      </label>
+      <label>گزارش / توضیح وضعیت
+        <textarea id="progressNote" maxlength="1000" placeholder="مثلاً: نقشه تحویل شد، فردا قالب‌بندی شروع می‌شود."></textarea>
+      </label>
+      <div class="formbuttons">
+        <button type="button" class="secondary" onclick="progressDialog.close()">انصراف</button>
+        <button type="submit">ثبت پیشرفت</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- دیالوگ تعریف کاربر جدید -->
+  <dialog id="userDialog">
+    <form id="userForm">
+      <h2>تعریف پیگیری‌کننده جدید</h2>
+      <label>نام و نام خانوادگی <input id="displayName" placeholder="مثلاً: مهندس احمدی" required></label>
+      <label>نام کاربری انگلیسی <input id="newUsername" placeholder="مثلاً: ahmadi" required></label>
+      <label>رمز عبور <input id="newPassword" type="password" value="123456" required></label>
+      <div class="formbuttons">
+        <button type="button" class="secondary" onclick="userDialog.close()">انصراف</button>
+        <button type="submit">ثبت کاربر</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- دیالوگ تاریخچه -->
+  <dialog id="historyDialog">
+    <h2>تاریخچه تغییرات پیشرفت</h2>
+    <div id="historyContent" style="max-height:60vh; overflow-y:auto;"></div>
+    <div class="formbuttons">
+      <button type="button" onclick="historyDialog.close()">بستن</button>
+    </div>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY_PREFIX = "esfandiar_clean_v4_";
+    const KEYS = {
+      users: STORAGE_KEY_PREFIX + "users",
+      tasks: STORAGE_KEY_PREFIX + "tasks",
+      history: STORAGE_KEY_PREFIX + "history"
+    };
+
+    const $ = id => document.getElementById(id);
+    const read = (k, def) => {
+      try { return JSON.parse(localStorage.getItem(k)) ?? def; }
+      catch { return def; }
+    };
+    const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+    const uid = () => 'id_' + Math.random().toString(36).substr(2, 9);
+
+    // بازنشانی خودکار کاربران مطمئن
+    function initApp() {
+      if (!localStorage.getItem(KEYS.users)) {
+        save(KEYS.users, [
+          { username: "admin", name: "مدیر سیستم", password: "123456", role: "admin" },
+          { username: "ali", name: "علی", password: "123456", role: "user" }
+        ]);
+      }
+      if (!localStorage.getItem(KEYS.tasks)) save(KEYS.tasks, []);
+      if (!localStorage.getItem(KEYS.history)) save(KEYS.history, []);
+    }
+    initApp();
+
+    const users = () => read(KEYS.users, []);
+    const tasks = () => read(KEYS.tasks, []);
+    let current = users().find(u => u.username === sessionStorage.getItem("esfandiar_session"));
+    let tempCurrentFiles = [];
+
+    function getTodayShamsi() {
+      const parts = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { year:'numeric', month:'numeric', day:'numeric'}).formatToParts(new Date());
+      let y = 1403, m = 1, d = 1;
+      parts.forEach(p => {
+        if(p.type === 'year') y = parseInt(p.value);
+        if(p.type === 'month') m = parseInt(p.value);
+        if(p.type === 'day') d = parseInt(p.value);
+      });
+      return { y, m, d };
+    }
+
+    function render() {
+      $("loginPage").classList.toggle("hidden", !!current);
+      $("app").classList.toggle("hidden", !current);
+      if (!current) return;
+
+      const isAdmin = current.role === "admin";
+      $("welcome").textContent = `${current.name} (${isAdmin ? "مدیر پروژه" : "پیگیری‌کننده"})`;
+      ["addTask", "addUser", "showHistory", "actionHead"].forEach(id => {
+        $(id).classList.toggle("hidden", !isAdmin);
+      });
+
+      const q = $("search").value.trim().toLowerCase();
+      const all = tasks();
+      const visible = all.filter(t =>
+        [t.description, t.assignee, t.details, t.note, t.dueDateShamsi].join(" ").toLowerCase().includes(q)
+      );
+
+      $("taskRows").innerHTML = visible.length ? visible.map(t => {
+        const index = all.findIndex(item => item.id === t.id) + 1;
+        const owner = users().find(u => u.username === t.assignee);
+        const docs = (t.files || []).map(f =>
+          `<a class="file-badge" href="${f.data}" download="${f.name}" target="_blank">📥 ${f.name}</a>`
+        ).join("");
+
+        const canUpdate = isAdmin || t.assignee === current.username;
+        const progress = Number(t.percent) || 0;
+
+        return `<tr>
+          <td data-label="ردیف"><div><b>${index}</b></div></td>
+          <td data-label="شرح کار"><div>${t.description}</div></td>
+          <td data-label="تاریخ انجام"><div>📅 ${t.dueDateShamsi || "—"}</div></td>
+          <td data-label="پیگیری‌کننده"><div>${owner?.name || t.assignee}</div></td>
+          <td data-label="توضیحات و مدارک">
+            <div>${(t.details || "—").replace(/\n/g, "<br>")}
+              <div class="files-list">${docs}</div>
+            </div>
+          </td>
+          <td data-label="پیشرفت کار"><div>
+            <b>${progress}٪</b>
+            <div class="progress"><span style="width:${progress}%"></span></div>
+            <div class="small muted">${t.note || ""}</div>
+            ${canUpdate ? `<button class="secondary small" style="margin-top:6px;" data-action="progress" data-id="${t.id}">✏️ ویرایش پیشرفت</button>` : ""}
+          </div></td>
+          ${isAdmin ? `<td data-label="عملیات"><div class="actions">
+            <button class="secondary small" data-action="edit" data-id="${t.id}">ویرایش</button>
+            <button class="danger small" data-action="delete" data-id="${t.id}">حذف</button>
+          </div></td>` : ""}
+        </tr>`;
+      }).join("") : `<tr><td class="empty muted" style="text-align:center; padding:25px;" colspan="${isAdmin ? 7 : 6}">
+        ${q ? "موردی پیدا نشد." : "فعالیتی ثبت نشده است. از دکمه «اضافه کردن فعالیت» استفاده کنید."}
+      </td></tr>`;
+    }
+
+    // ورود دستی
+    $("loginForm").onsubmit = e => {
+      e.preventDefault();
+      const uVal = $("loginUser").value.trim().toLowerCase();
+      const pVal = $("loginPass").value.trim();
+      const user = users().find(u => u.username.toLowerCase() === uVal && u.password === pVal);
+      if (!user) return alert("نام کاربری یا رمز اشتباه است!\nبرای ورود راحت‌تر از دکمه‌های سبز 'ورود سریع' استفاده کنید.");
+      current = user;
+      sessionStorage.setItem("esfandiar_session", user.username);
+      render();
+    };
+
+    // تابع ورود سریع با ۱ کلیک
+    window.quickLogin = function(username) {
+      const user = users().find(u => u.username === username);
+      if (user) {
+        current = user;
+        sessionStorage.setItem("esfandiar_session", user.username);
+        render();
+      }
+    };
+
+    $("logout").onclick = () => {
+      current = null;
+      sessionStorage.removeItem("esfandiar_session");
+      render();
+    };
+
+    $("search").oninput = render;
+
+    // آپلود فایل
+    $("fileUploader").addEventListener("change", function(e) {
+      const files = Array.from(e.target.files);
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          tempCurrentFiles.push({
+            name: file.name,
+            data: evt.target.result
+          });
+          drawUploadedPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+      e.target.value = "";
+    });
+
+    function drawUploadedPreview() {
+      $("uploadedFilesPreview").innerHTML = tempCurrentFiles.map((f, idx) => `
+        <span class="file-badge">
+          📎 ${f.name}
+          <b style="cursor:pointer; color:red; margin-right:4px;" onclick="removeFile(${idx})">✖</b>
+        </span>
+      `).join("");
+    }
+
+    window.removeFile = function(idx) {
+      tempCurrentFiles.splice(idx, 1);
+      drawUploadedPreview();
+    };
+
+    function openTask(id = "") {
+      const task = tasks().find(t => t.id === id);
+      $("taskDialog").dataset.id = id;
+      $("taskTitle").textContent = task ? "ویرایش فعالیت" : "اضافه کردن فعالیت";
+      $("description").value = task?.description || "";
+      $("details").value = task?.details || "";
+
+      tempCurrentFiles = task?.files ? [...task.files] : [];
+      drawUploadedPreview();
+
+      if (task?.dueDateShamsi) {
+        const p = task.dueDateShamsi.split("/");
+        $("shamsiYear").value = p[0];
+        $("shamsiMonth").value = parseInt(p[1]);
+        $("shamsiDay").value = parseInt(p[2]);
+      } else {
+        const today = getTodayShamsi();
+        $("shamsiYear").value = today.y;
+        $("shamsiMonth").value = today.m;
+        $("shamsiDay").value = today.d;
+      }
+      
+      const userList = users().filter(u => u.role === "user");
+      if (!userList.length) return alert("ابتدا باید حداقل یک کاربر پیگیری‌کننده تعریف کنید!");
+      
+      $("assignee").innerHTML = userList.map(u => `<option value="${u.username}">${u.name}</option>`).join("");
+      $("assignee").value = task?.assignee || userList[0].username;
+      $("taskDialog").showModal();
+    }
+
+    $("addTask").onclick = () => openTask();
+
+    $("taskForm").onsubmit = e => {
+      e.preventDefault();
+      const all = tasks();
+      const id = $("taskDialog").dataset.id;
+      const old = all.find(t => t.id === id);
+
+      const y = $("shamsiYear").value;
+      const m = String($("shamsiMonth").value).padStart(2, '0');
+      const d = String($("shamsiDay").value).padStart(2, '0');
+      const shamsiDate = `${y}/${m}/${d}`;
+
+      const item = {
+        id: old?.id || uid(),
+        description: $("description").value.trim(),
+        dueDateShamsi: shamsiDate,
+        assignee: $("assignee").value,
+        details: $("details").value.trim(),
+        files: tempCurrentFiles,
+        percent: old?.percent ?? 0,
+        note: old?.note ?? ""
+      };
+
+      if (old) all[all.findIndex(t => t.id === id)] = item;
+      else all.push(item);
+
+      save(KEYS.tasks, all);
+      $("taskDialog").close();
+      render();
+    };
+
+    $("taskRows").onclick = e => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const { action, id } = btn.dataset;
+      const task = tasks().find(t => t.id === id);
+      if (!task) return;
+
+      if (action === "progress") {
+        $("progressDialog").dataset.id = id;
+        $("percent").value = task.percent ?? 0;
+        $("progressNote").value = task.note ?? "";
+        $("progressDialog").showModal();
+      }
+      if (action === "edit") openTask(id);
+      if (action === "delete" && confirm(`فعالیت «${task.description}» حذف شود؟`)) {
+        save(KEYS.tasks, tasks().filter(t => t.id !== id));
+        render();
+      }
+    };
+
+    $("progressForm").onsubmit = e => {
+      e.preventDefault();
+      const all = tasks();
+      const task = all.find(t => t.id === $("progressDialog").dataset.id);
+      const next = Number($("percent").value);
+      const note = $("progressNote").value.trim();
+      
+      const today = getTodayShamsi();
+      const history = read(KEYS.history, []);
+      history.push({
+        title: task.description,
+        by: current.name,
+        from: task.percent || 0,
+        to: next,
+        note: note,
+        date: `${today.y}/${today.m}/${today.d}`
+      });
+      save(KEYS.history, history);
+
+      task.percent = next;
+      task.note = note;
+      save(KEYS.tasks, all);
+      $("progressDialog").close();
+      render();
+    };
+
+    $("addUser").onclick = () => {
+      $("userForm").reset();
+      $("userDialog").showModal();
+    };
+
+    $("userForm").onsubmit = e => {
+      e.preventDefault();
+      const uname = $("newUsername").value.trim().toLowerCase();
+      const all = users();
+      if (all.some(u => u.username.toLowerCase() === uname)) return alert("این نام کاربری قبلاً وجود دارد!");
+      all.push({
+        username: uname,
+        name: $("displayName").value.trim(),
+        password: $("newPassword").value.trim(),
+        role: "user"
+      });
+      save(KEYS.users, all);
+      $("userDialog").close();
+      alert("کاربر جدید ثبت شد.");
+      render();
+    };
+
+    $("showHistory").onclick = () => {
+      const h = read(KEYS.history, []).slice().reverse();
+      $("historyContent").innerHTML = h.length ? h.map(item => `
+        <div style="padding:10px 0; border-bottom:1px solid #eee;">
+          <b>${item.title}</b> — <span class="muted">${item.by} (${item.from}٪ به ${item.to}٪)</span><br>
+          <small class="muted">📅 تاریخ: ${item.date}</small>
+          ${item.note ? `<div style="margin-top:4px; font-size:13px;">توضیحات: ${item.note}</div>` : ""}
+        </div>
+      `).join("") : "<p class='muted'>هنوز تغییری ثبت نشده است.</p>";
+      $("historyDialog").showModal();
+    };
+
+    render();
+  </script>
+</body>
+</html>
