@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>پروژه احداث ساختمان اسفندیار - شرکت مهراصل</title>
-    <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
@@ -14,7 +13,7 @@
             --card: #ffffff;
             --border: #cbd5e1;
             --text: #0f172a;
-            --muted-bg: #cbd5e1; /* رنگ خاکستری متوسط برای بخش‌های غیرقابل ویرایش */
+            --muted-bg: #cbd5e1;
             --success: #16a34a;
             --danger: #dc2626;
         }
@@ -84,11 +83,10 @@
             font-weight: bold;
         }
 
-        /* بخش لاگین */
         #login-modal {
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.7);
+            background: rgba(15, 23, 42, 0.75);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -147,7 +145,7 @@
 
         .shamsi-group select {
             flex: 1;
-            padding: 8px 6px;
+            padding: 8px 4px;
             border: 1px solid var(--border);
             border-radius: 6px;
             font-size: 0.85rem;
@@ -188,7 +186,6 @@
             color: white;
         }
 
-        /* جدول فعالیت‌ها */
         .table-container {
             background: var(--card);
             border-radius: 12px;
@@ -224,7 +221,6 @@
             background-color: #f8fafc;
         }
 
-        /* پس‌زمینه خاکستری برای سلول‌های غیرقابل ویرایش */
         .cell-readonly {
             background-color: var(--muted-bg) !important;
             color: #475569;
@@ -279,21 +275,7 @@
             border-radius: 12px;
             padding: 24px;
             width: 100%;
-            max-width: 650px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- هدر سایت -->
-    <header class="header-card">
-        <div class="header-brand">
-            <img src="logo.webp" alt="شرکت مهراصل" onerror="this.src='images.webp';">
-            <div class="header-title">
-                <h1>پروژه احداث ساختمان اسفندیار</h1>
-                <p>سامانه پیگیری و مدیریت فعالیت‌های اجرایی - شرکت مهراصل</p>
+            >سامانه پیگیری و مدیریت فعالیت‌های اجرایی - شرکت مهراصل</p>
             </div>
         </div>
         <div class="user-panel">
@@ -303,7 +285,6 @@
         </div>
     </header>
 
-    <!-- جدول ۸ ستونی فعالیت‌ها -->
     <div class="table-container">
         <table id="tasks-table">
             <thead>
@@ -327,14 +308,14 @@
         </table>
     </div>
 
-    <!-- مودال ورود -->
+    <!-- پنجره لاگین -->
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
             <div class="form-group">
-                <label>انتخاب نقش / نام کاربری:</label>
-                <select id="login-user-select" class="form-control" onchange="togglePasswordInput()">
-                    <option value="" disabled selected>-- انتخاب کاربر --</option>
+                <label>انتخاب نقش / کاربر:</label>
+                <select id="login-user-select" class="form-control" onchange="onUserSelectionChange()">
+                    <option value="" disabled selected>-- لطفاً کاربر را انتخاب کنید --</option>
                     <option value="user1">کاربر یک (رییس کارگاه)</option>
                     <option value="user2">کاربر دو (مهندس اجرا)</option>
                     <option value="user3">کاربر سه (دفتر فنی)</option>
@@ -344,406 +325,4 @@
             </div>
 
             <div class="form-group" id="password-group" style="display: none;">
-                <label>رمز عبور مدیر:</label>
-                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور">
-            </div>
-
-            <p id="login-error" class="error-msg"></p>
-            <button type="button" id="btn-submit-login" class="btn btn-primary" onclick="handleLogin()">ورود به برنامه</button>
-        </div>
-    </div>
-
-    <!-- مودال افزودن فعالیت جدید برای مدیر -->
-    <div id="task-modal" class="modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 16px; color: var(--primary);">ثبت فعالیت جدید</h3>
-            <form id="task-form" onsubmit="saveTask(event)">
-                <div class="form-group">
-                    <label>شرح فعالیت:</label>
-                    <textarea id="task-description" class="form-control" rows="2" required placeholder="عنوان و شرح فعالیت مورد نظر..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>پیگیری‌کننده:</label>
-                    <select id="task-assignee" class="form-control" required>
-                        <option value="user1">کاربر یک (رییس کارگاه)</option>
-                        <option value="user2">کاربر دو (مهندس اجرا)</option>
-                        <option value="user3">کاربر سه (دفتر فنی)</option>
-                        <option value="user4">کاربر چهار (ایمنی)</option>
-                    </select>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-                    <!-- منوی سه‌گانه کشویی تاریخ ثبت -->
-                    <div class="form-group">
-                        <label>تاریخ ثبت (پیش‌فرض امروز):</label>
-                        <div class="shamsi-group">
-                            <select id="reg-year"></select>
-                            <select id="reg-month"></select>
-                            <select id="reg-day"></select>
-                        </div>
-                    </div>
-
-                    <!-- منوی سه‌گانه کشویی مهلت انجام -->
-                    <div class="form-group">
-                        <label>مهلت انجام:</label>
-                        <div class="shamsi-group">
-                            <select id="due-year"></select>
-                            <select id="due-month"></select>
-                            <select id="due-day"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>توضیحات تکمیلی:</label>
-                    <textarea id="task-details" class="form-control" rows="2" placeholder="توضیحات اولیه مدیر..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>پیوست فایل‌ها (چندگانه):</label>
-                    <input type="file" id="task-files-input" class="form-control" multiple>
-                </div>
-
-                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                    <button type="button" class="btn" style="background:#cbd5e1;" onclick="closeModal()">انصراف</button>
-                    <button type="submit" class="btn btn-primary" id="btn-save-task">ذخیره فعالیت</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // اتصال دقیق و تایید شده با کلید ارسالی
-        const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
-        const SUPABASE_ANON_KEY = "GAPGPTMASKTOKENehqvq8o17efX0X";
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        const USERS_MAP = {
-            'mahbod': { name: 'مهندس مهبد', title: 'مدیر پروژه', role: 'admin' },
-            'user1': { name: 'کاربر یک', title: 'رییس کارگاه', role: 'user' },
-            'user2': { name: 'کاربر دو', title: 'مهندس اجرا', role: 'user' },
-            'user3': { name: 'کاربر سه', title: 'دفتر فنی', role: 'user' },
-            'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' }
-        };
-
-        const MONTH_NAMES = [
-            "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-            "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
-        ];
-
-        let currentUser = null;
-        let tasksList = [];
-
-        // تبدیل تقویم میلادی به شمسی دقیق بدون کتابخانه
-        function gregorianToJalali(gy, gm, gd) {
-            const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-            let gy2 = (gm > 2) ? (gy + 1) : gy;
-            let days = 355666 + (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + g_d_m[gm - 1];
-            let jy = -1595 + (33 * Math.floor(days / 12053));
-            days %= 12053;
-            jy += 4 * Math.floor(days / 1461);
-            days %= 1461;
-            if (days > 365) {
-                jy += Math.floor((days - 1) / 365);
-                days = (days - 1) % 365;
-            }
-            let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
-            let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
-            return { jy, jm, jd };
-        }
-
-        // مقداردهی دراپ‌داون‌های شمسی
-        function populateShamsiDropdowns(prefix, defaultDate = null) {
-            const ySelect = document.getElementById(`${prefix}-year`);
-            const mSelect = document.getElementById(`${prefix}-month`);
-            const dSelect = document.getElementById(`${prefix}-day`);
-            if (!ySelect || !mSelect || !dSelect) return;
-
-            ySelect.innerHTML = '';
-            for (let y = 1403; y <= 1408; y++) {
-                ySelect.innerHTML += `<option value="${y}">${y}</option>`;
-            }
-
-            mSelect.innerHTML = '';
-            MONTH_NAMES.forEach((m, idx) => {
-                const val = String(idx + 1).padStart(2, '0');
-                mSelect.innerHTML += `<option value="${val}">${m}</option>`;
-            });
-
-            dSelect.innerHTML = '';
-            for (let d = 1; d <= 31; d++) {
-                const val = String(d).padStart(2, '0');
-                dSelect.innerHTML += `<option value="${val}">${d}</option>`;
-            }
-
-            if (defaultDate) {
-                ySelect.value = defaultDate.jy;
-                mSelect.value = String(defaultDate.jm).padStart(2, '0');
-                dSelect.value = String(defaultDate.jd).padStart(2, '0');
-            }
-        }
-
-        function getShamsiString(prefix) {
-            const y = document.getElementById(`${prefix}-year`).value;
-            const m = document.getElementById(`${prefix}-month`).value;
-            const d = document.getElementById(`${prefix}-day`).value;
-            return `${y}/${m}/${d}`;
-        }
-
-        function initApp() {
-            const today = new Date();
-            const todayJalali = gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-
-            populateShamsiDropdowns('reg', todayJalali);
-            populateShamsiDropdowns('due', todayJalali);
-
-            const saved = localStorage.getItem('esfandiar_session');
-            if (saved) {
-                try {
-                    currentUser = JSON.parse(saved);
-                    setupUI();
-                    loadTasks();
-                    return;
-                } catch(e) {
-                    localStorage.removeItem('esfandiar_session');
-                }
-            }
-            document.getElementById('login-modal').style.display = 'flex';
-        }
-
-        function togglePasswordInput() {
-            const val = document.getElementById('login-user-select').value;
-            document.getElementById('password-group').style.display = (val === 'mahbod') ? 'block' : 'none';
-            document.getElementById('login-error').style.display = 'none';
-        }
-
-        function handleLogin() {
-            const userSelect = document.getElementById('login-user-select').value;
-            const passInput = document.getElementById('login-password').value;
-            const errBox = document.getElementById('login-error');
-
-            if (!userSelect) {
-                errBox.innerText = 'لطفاً نام کاربری را انتخاب کنید.';
-                errBox.style.display = 'block';
-                return;
-            }
-
-            // بررسی رمز مدیر
-            if (userSelect === 'mahbod') {
-                if (passInput !== '@Aida1387@') {
-                    errBox.innerText = 'رمز عبور مدیر صحیح نمی‌باشد.';
-                    errBox.style.display = 'block';
-                    return;
-                }
-            }
-
-            currentUser = { username: userSelect, ...USERS_MAP[userSelect] };
-            localStorage.setItem('esfandiar_session', JSON.stringify(currentUser));
-            document.getElementById('login-modal').style.display = 'none';
-            setupUI();
-            loadTasks();
-        }
-
-        function logout() {
-            localStorage.removeItem('esfandiar_session');
-            currentUser = null;
-            location.reload();
-        }
-
-        function setupUI() {
-            document.getElementById('current-user-info').innerText = `${currentUser.name} (${currentUser.title})`;
-            if (currentUser.role === 'admin') {
-                document.getElementById('btn-add-task').style.display = 'inline-flex';
-                document.getElementById('actions-header').style.display = 'table-cell';
-            } else {
-                document.getElementById('btn-add-task').style.display = 'none';
-                document.getElementById('actions-header').style.display = 'none';
-            }
-        }
-
-        async function loadTasks() {
-            const tbody = document.getElementById('tasks-body');
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">در حال دریافت اطلاعات...</td></tr>`;
-
-            const { data, error } = await client
-                .from('tasks')
-                .select('*')
-                .order('id', { ascending: true });
-
-            if (error) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: red;">خطا: ${error.message}</td></tr>`;
-                return;
-            }
-
-            tasksList = data || [];
-            renderTasks();
-        }
-
-        function renderTasks() {
-            const tbody = document.getElementById('tasks-body');
-            if (tasksList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">هیچ فعالیتی ثبت نشده است.</td></tr>`;
-                return;
-            }
-
-            const isAdmin = currentUser.role === 'admin';
-
-            tbody.innerHTML = tasksList.map((t, idx) => {
-                const isAssigned = isAdmin || (t.assignee === currentUser.username);
-                const readOnlyClass = !isAdmin ? 'cell-readonly' : '';
-                const assigneeTitle = USERS_MAP[t.assignee]?.title || t.assignee;
-
-                return `
-                    <tr>
-                        <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-                        <td class="${readOnlyClass}">${t.description || '-'}</td>
-                        <td class="${readOnlyClass}">
-                            <span class="badge" style="background:#f1f5f9; color:#1e3a8a;">${assigneeTitle}</span>
-                        </td>
-                        <td class="${readOnlyClass}" style="white-space: nowrap;">${t.created_date || '-'}</td>
-                        <td class="${readOnlyClass}" style="white-space: nowrap;">${t.due_date || '-'}</td>
-                        
-                        <!-- ستون تاریخ انجام (قابل ویرایش توسط پیگیری‌کننده) -->
-                        <td class="${!isAssigned ? 'cell-readonly' : ''}">
-                            ${isAssigned ? `
-                                <div class="shamsi-group">
-                                    <select onchange="updateCompletionDate(${t.id}, 'y', this.value)" style="padding:4px; font-size:0.75rem;">
-                                        ${[1404, 1405, 1406].map(y => `<option value="${y}" ${(t.completion_date || '').startsWith(String(y)) ? 'selected' : ''}>${y}</option>`).join('')}
-                                    </select>
-                                    <select onchange="updateCompletionDate(${t.id}, 'm', this.value)" style="padding:4px; font-size:0.75rem;">
-                                        ${MONTH_NAMES.map((m, idx) => {
-                                            const val = String(idx+1).padStart(2,'0');
-                                            const isSel = (t.completion_date || '').includes(`/${val}/`);
-                                            return `<option value="${val}" ${isSel ? 'selected' : ''}>${m}</option>`;
-                                        }).join('')}
-                                    </select>
-                                    <select onchange="updateCompletionDate(${t.id}, 'd', this.value)" style="padding:4px; font-size:0.75rem;">
-                                        ${Array.from({length:31}, (_,i)=>String(i+1).padStart(2,'0')).map(d => {
-                                            const isSel = (t.completion_date || '').endsWith(`/${d}`);
-                                            return `<option value="${d}" ${isSel ? 'selected' : ''}>${d}</option>`;
-                                        }).join('')}
-                                    </select>
-                                </div>
-                            ` : `<span>${t.completion_date || '-'}</span>`}
-                        </td>
-
-                        <!-- ستون اقدامات و درصد پیشرفت -->
-                        <td class="${!isAssigned ? 'cell-readonly' : ''}">
-                            <div class="progress-box">
-                                <input type="range" class="progress-slider" min="0" max="100" value="${t.progress || 0}" 
-                                    onchange="updateTaskField(${t.id}, 'progress', parseInt(this.value))"
-                                    oninput="this.nextElementSibling.innerText = this.value + '%'"
-                                    ${!isAssigned ? 'disabled' : ''}>
-                                <span style="font-size: 0.8rem; min-width: 35px; font-weight: bold;">${t.progress || 0}%</span>
-                            </div>
-                            <input type="text" class="form-control" style="font-size: 0.8rem; margin-top: 6px; padding: 4px;"
-                                value="${t.actions || ''}" placeholder="شرح اقدامات..."
-                                onchange="updateTaskField(${t.id}, 'actions', this.value)"
-                                ${!isAssigned ? 'disabled' : ''}>
-                        </td>
-
-                        <!-- توضیحات و فایل‌ها -->
-                        <td class="${readOnlyClass}">
-                            <div style="font-size: 0.82rem; margin-bottom: 4px;">${t.details || '-'}</div>
-                            ${renderFiles(t.files)}
-                        </td>
-
-                        <!-- دکمه عملیات فقط برای مدیر -->
-                        ${isAdmin ? `
-                            <td style="text-align: center;">
-                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="deleteTask(${t.id})">حذف</button>
-                            </td>
-                        ` : ''}
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        function renderFiles(files) {
-            if (!files || !files.length) return '';
-            return files.map(f => `<a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>`).join('');
-        }
-
-        async function updateTaskField(id, field, value) {
-            const updateObj = {};
-            updateObj[field] = value;
-            const { error } = await client.from('tasks').update(updateObj).eq('id', id);
-            if (error) {
-                alert('خطا در ذخیره تغییرات: ' + error.message);
-            }
-        }
-
-        async function updateCompletionDate(taskId, part, value) {
-            const task = tasksList.find(t => t.id === taskId);
-            let parts = (task.completion_date || "1405/01/01").split('/');
-            if (parts.length !== 3) parts = ["1405", "01", "01"];
-
-            if (part === 'y') parts[0] = value;
-            if (part === 'm') parts[1] = value;
-            if (part === 'd') parts[2] = value;
-
-            const fullDate = parts.join('/');
-            task.completion_date = fullDate;
-            await updateTaskField(taskId, 'completion_date', fullDate);
-        }
-
-        function openNewTaskModal() {
-            document.getElementById('task-form').reset();
-            const today = new Date();
-            const todayJalali = gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-            populateShamsiDropdowns('reg', todayJalali);
-            populateShamsiDropdowns('due', todayJalali);
-            document.getElementById('task-modal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('task-modal').style.display = 'none';
-        }
-
-        async function saveTask(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save-task');
-            btn.innerText = 'در حال ذخیره‌سازی...';
-            btn.disabled = true;
-
-            const desc = document.getElementById('task-description').value;
-            const assignee = document.getElementById('task-assignee').value;
-            const details = document.getElementById('task-details').value;
-            const regDate = getShamsiString('reg');
-            const dueDate = getShamsiString('due');
-            const fileInput = document.getElementById('task-files-input');
-
-            let uploadedFiles = [];
-            if (fileInput.files.length > 0) {
-                for (let file of fileInput.files) {
-                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                    const path = `${Date.now()}_${cleanName}`;
-                    const { error: uploadErr } = await client.storage
-                        .from('task-files')
-                        .upload(path, file);
-
-                    if (!uploadErr) {
-                        const { data: { publicUrl } } = client.storage.from('task-files').getPublicUrl(path);
-                        uploadedFiles.push({ name: file.name, url: publicUrl });
-                    }
-                }
-            }
-
-            const { error } = await client.from('tasks').insert([{
-                description: desc,
-                assignee: assignee,
-                created_date: regDate,
-                due_date: dueDate,
-                details: details,
-                files: uploadedFiles,
-                progress: 0,
-                actions: '',
-                completion_date: ''
-            }]);
-
-            btn.innerText = 'ذخیره فعالیت';
-            btn.disabled = false;
-
-            if (error) {
-                alert('خطا در ثبت فعالیت: ' + error.message);
-            } else {
+                <label>رمز عبور 
