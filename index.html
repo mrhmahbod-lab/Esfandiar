@@ -14,7 +14,7 @@
             --card: #ffffff;
             --border: #cbd5e1;
             --text: #0f172a;
-            --muted-bg: #e2e8f0;
+            --muted-bg: #cbd5e1; /* رنگ خاکستری متوسط برای بخش‌های غیرقابل ویرایش */
             --success: #16a34a;
             --danger: #dc2626;
         }
@@ -127,12 +127,12 @@
 
         .form-control {
             width: 100%;
-            padding: 10px 14px;
+            padding: 9px 12px;
             border: 1px solid var(--border);
             border-radius: 8px;
             outline: none;
-            font-size: 0.95rem;
-            transition: border 0.2s;
+            font-size: 0.9rem;
+            background: white;
         }
 
         .form-control:focus {
@@ -140,8 +140,22 @@
             box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
         }
 
+        .shamsi-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .shamsi-group select {
+            flex: 1;
+            padding: 8px 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            background: white;
+        }
+
         .btn {
-            padding: 10px 18px;
+            padding: 9px 16px;
             border: none;
             border-radius: 8px;
             font-size: 0.9rem;
@@ -202,7 +216,7 @@
 
         td {
             padding: 10px 12px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
             vertical-align: middle;
         }
 
@@ -210,14 +224,13 @@
             background-color: #f8fafc;
         }
 
-        .read-only {
+        /* پس‌زمینه خاکستری برای سلول‌های غیرقابل ویرایش */
+        .cell-readonly {
             background-color: var(--muted-bg) !important;
-            color: #64748b;
+            color: #475569;
             cursor: not-allowed;
-            pointer-events: none;
         }
 
-        /* نوارهای پیشرفت و فرم‌ها */
         .progress-box {
             display: flex;
             align-items: center;
@@ -232,11 +245,15 @@
             display: inline-block;
             background: #e0f2fe;
             color: #0369a1;
-            padding: 3px 8px;
+            padding: 4px 8px;
             border-radius: 4px;
             font-size: 0.78rem;
             text-decoration: none;
             margin: 2px;
+        }
+
+        .file-link:hover {
+            background: #bae6fd;
         }
 
         .error-msg {
@@ -276,7 +293,7 @@
             <img src="logo.webp" alt="شرکت مهراصل" onerror="this.src='images.webp';">
             <div class="header-title">
                 <h1>پروژه احداث ساختمان اسفندیار</h1>
-                <p>سامانه پیگیری و مدیریت فعالیت‌های اجرایی</p>
+                <p>سامانه پیگیری و مدیریت فعالیت‌های اجرایی - شرکت مهراصل</p>
             </div>
         </div>
         <div class="user-panel">
@@ -286,25 +303,25 @@
         </div>
     </header>
 
-    <!-- جدول اطلاعات -->
+    <!-- جدول ۸ ستونی فعالیت‌ها -->
     <div class="table-container">
         <table id="tasks-table">
             <thead>
                 <tr>
-                    <th style="width: 50px;">ردیف</th>
+                    <th style="width: 45px; text-align: center;">ردیف</th>
                     <th>شرح فعالیت</th>
-                    <th>پیگیری‌کننده</th>
-                    <th>تاریخ ثبت</th>
-                    <th>مهلت انجام</th>
-                    <th>تاریخ انجام</th>
-                    <th style="width: 220px;">اقدامات و درصد</th>
+                    <th style="width: 130px;">پیگیری‌کننده</th>
+                    <th style="width: 110px;">تاریخ ثبت</th>
+                    <th style="width: 110px;">مهلت انجام</th>
+                    <th style="width: 160px;">تاریخ انجام</th>
+                    <th style="width: 230px;">اقدامات و درصد</th>
                     <th>توضیحات و فایل‌ها</th>
-                    <th id="actions-header" style="width: 90px; display: none;">عملیات</th>
+                    <th id="actions-header" style="width: 80px; text-align: center; display: none;">عملیات</th>
                 </tr>
             </thead>
             <tbody id="tasks-body">
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">در حال خواندن اطلاعات...</td>
+                    <td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">در حال دریافت اطلاعات از سرور...</td>
                 </tr>
             </tbody>
         </table>
@@ -328,7 +345,7 @@
 
             <div class="form-group" id="password-group" style="display: none;">
                 <label>رمز عبور مدیر:</label>
-                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور مدیر">
+                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور">
             </div>
 
             <p id="login-error" class="error-msg"></p>
@@ -336,15 +353,14 @@
         </div>
     </div>
 
-    <!-- مودال افزودن/ویرایش تسک برای مدیر -->
+    <!-- مودال افزودن فعالیت جدید برای مدیر -->
     <div id="task-modal" class="modal">
         <div class="modal-content">
-            <h3 id="modal-task-title" style="margin-bottom: 16px; color: var(--primary);">ثبت فعالیت جدید</h3>
+            <h3 style="margin-bottom: 16px; color: var(--primary);">ثبت فعالیت جدید</h3>
             <form id="task-form" onsubmit="saveTask(event)">
-                <input type="hidden" id="task-id">
                 <div class="form-group">
                     <label>شرح فعالیت:</label>
-                    <textarea id="task-description" class="form-control" rows="2" required></textarea>
+                    <textarea id="task-description" class="form-control" rows="2" required placeholder="عنوان و شرح فعالیت مورد نظر..."></textarea>
                 </div>
                 <div class="form-group">
                     <label>پیگیری‌کننده:</label>
@@ -355,20 +371,39 @@
                         <option value="user4">کاربر چهار (ایمنی)</option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 12px;">
-                    <div class="form-group" style="flex: 1;">
-                        <label>مهلت انجام (شمسی):</label>
-                        <input type="text" id="task-due-date" class="form-control" placeholder="مثال: 1405/08/20">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <!-- منوی سه‌گانه کشویی تاریخ ثبت -->
+                    <div class="form-group">
+                        <label>تاریخ ثبت (پیش‌فرض امروز):</label>
+                        <div class="shamsi-group">
+                            <select id="reg-year"></select>
+                            <select id="reg-month"></select>
+                            <select id="reg-day"></select>
+                        </div>
                     </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label>تاریخ ثبت:</label>
-                        <input type="text" id="task-created-date" class="form-control" placeholder="1405/08/16">
+
+                    <!-- منوی سه‌گانه کشویی مهلت انجام -->
+                    <div class="form-group">
+                        <label>مهلت انجام:</label>
+                        <div class="shamsi-group">
+                            <select id="due-year"></select>
+                            <select id="due-month"></select>
+                            <select id="due-day"></select>
+                        </div>
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label>پیوست فایل‌ها (آپلود به سرور):</label>
+                    <label>توضیحات تکمیلی:</label>
+                    <textarea id="task-details" class="form-control" rows="2" placeholder="توضیحات اولیه مدیر..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>پیوست فایل‌ها (چندگانه):</label>
                     <input type="file" id="task-files-input" class="form-control" multiple>
                 </div>
+
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button type="button" class="btn" style="background:#cbd5e1;" onclick="closeModal()">انصراف</button>
                     <button type="submit" class="btn btn-primary" id="btn-save-task">ذخیره فعالیت</button>
@@ -378,10 +413,9 @@
     </div>
 
     <script>
-        // تنظیمات Supabase
+        // اتصال دقیق و تایید شده با کلید ارسالی
         const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk3OTU2OTQsImV4cCI6MjA1NTM3MTY5NH0.Z9zU9hC33mD-vWf7t5-lJbS0W3-Lg9J5vYkK5xL5_g"; // در صورت وجود کلید اختصاصی پروژه استفاده شود
-        
+        const SUPABASE_ANON_KEY = "GAPGPTMASKTOKENehqvq8o17efX0X";
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const USERS_MAP = {
@@ -392,10 +426,77 @@
             'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' }
         };
 
+        const MONTH_NAMES = [
+            "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+            "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
+        ];
+
         let currentUser = null;
         let tasksList = [];
 
+        // تبدیل تقویم میلادی به شمسی دقیق بدون کتابخانه
+        function gregorianToJalali(gy, gm, gd) {
+            const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+            let gy2 = (gm > 2) ? (gy + 1) : gy;
+            let days = 355666 + (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + g_d_m[gm - 1];
+            let jy = -1595 + (33 * Math.floor(days / 12053));
+            days %= 12053;
+            jy += 4 * Math.floor(days / 1461);
+            days %= 1461;
+            if (days > 365) {
+                jy += Math.floor((days - 1) / 365);
+                days = (days - 1) % 365;
+            }
+            let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+            let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+            return { jy, jm, jd };
+        }
+
+        // مقداردهی دراپ‌داون‌های شمسی
+        function populateShamsiDropdowns(prefix, defaultDate = null) {
+            const ySelect = document.getElementById(`${prefix}-year`);
+            const mSelect = document.getElementById(`${prefix}-month`);
+            const dSelect = document.getElementById(`${prefix}-day`);
+            if (!ySelect || !mSelect || !dSelect) return;
+
+            ySelect.innerHTML = '';
+            for (let y = 1403; y <= 1408; y++) {
+                ySelect.innerHTML += `<option value="${y}">${y}</option>`;
+            }
+
+            mSelect.innerHTML = '';
+            MONTH_NAMES.forEach((m, idx) => {
+                const val = String(idx + 1).padStart(2, '0');
+                mSelect.innerHTML += `<option value="${val}">${m}</option>`;
+            });
+
+            dSelect.innerHTML = '';
+            for (let d = 1; d <= 31; d++) {
+                const val = String(d).padStart(2, '0');
+                dSelect.innerHTML += `<option value="${val}">${d}</option>`;
+            }
+
+            if (defaultDate) {
+                ySelect.value = defaultDate.jy;
+                mSelect.value = String(defaultDate.jm).padStart(2, '0');
+                dSelect.value = String(defaultDate.jd).padStart(2, '0');
+            }
+        }
+
+        function getShamsiString(prefix) {
+            const y = document.getElementById(`${prefix}-year`).value;
+            const m = document.getElementById(`${prefix}-month`).value;
+            const d = document.getElementById(`${prefix}-day`).value;
+            return `${y}/${m}/${d}`;
+        }
+
         function initApp() {
+            const today = new Date();
+            const todayJalali = gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+            populateShamsiDropdowns('reg', todayJalali);
+            populateShamsiDropdowns('due', todayJalali);
+
             const saved = localStorage.getItem('esfandiar_session');
             if (saved) {
                 try {
@@ -412,12 +513,7 @@
 
         function togglePasswordInput() {
             const val = document.getElementById('login-user-select').value;
-            const passGrp = document.getElementById('password-group');
-            if (val === 'mahbod') {
-                passGrp.style.display = 'block';
-            } else {
-                passGrp.style.display = 'none';
-            }
+            document.getElementById('password-group').style.display = (val === 'mahbod') ? 'block' : 'none';
             document.getElementById('login-error').style.display = 'none';
         }
 
@@ -432,7 +528,7 @@
                 return;
             }
 
-            // لاگین مدیر
+            // بررسی رمز مدیر
             if (userSelect === 'mahbod') {
                 if (passInput !== '@Aida1387@') {
                     errBox.innerText = 'رمز عبور مدیر صحیح نمی‌باشد.';
@@ -441,12 +537,7 @@
                 }
             }
 
-            // ورود موفق
-            currentUser = {
-                username: userSelect,
-                ...USERS_MAP[userSelect]
-            };
-
+            currentUser = { username: userSelect, ...USERS_MAP[userSelect] };
             localStorage.setItem('esfandiar_session', JSON.stringify(currentUser));
             document.getElementById('login-modal').style.display = 'none';
             setupUI();
@@ -472,7 +563,7 @@
 
         async function loadTasks() {
             const tbody = document.getElementById('tasks-body');
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px;">در حال دریافت اطلاعات...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">در حال دریافت اطلاعات...</td></tr>`;
 
             const { data, error } = await client
                 .from('tasks')
@@ -480,7 +571,7 @@
                 .order('id', { ascending: true });
 
             if (error) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: red;">خطا در دریافت اطلاعات: ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: red;">خطا: ${error.message}</td></tr>`;
                 return;
             }
 
@@ -495,45 +586,70 @@
                 return;
             }
 
+            const isAdmin = currentUser.role === 'admin';
+
             tbody.innerHTML = tasksList.map((t, idx) => {
-                const isAssigned = (currentUser.role === 'admin') || (t.assignee === currentUser.username);
-                const readOnlyClass = !isAssigned ? 'read-only' : '';
+                const isAssigned = isAdmin || (t.assignee === currentUser.username);
+                const readOnlyClass = !isAdmin ? 'cell-readonly' : '';
                 const assigneeTitle = USERS_MAP[t.assignee]?.title || t.assignee;
 
                 return `
                     <tr>
                         <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-                        <td class="${currentUser.role !== 'admin' ? 'read-only' : ''}">${t.description || '-'}</td>
-                        <td class="${currentUser.role !== 'admin' ? 'read-only' : ''}">
-                            <span class="badge" style="background:#f1f5f9; color:#334155;">${assigneeTitle}</span>
-                        </td>
-                        <td class="${currentUser.role !== 'admin' ? 'read-only' : ''}">${t.created_date || '-'}</td>
-                        <td class="${currentUser.role !== 'admin' ? 'read-only' : ''}">${t.due_date || '-'}</td>
+                        <td class="${readOnlyClass}">${t.description || '-'}</td>
                         <td class="${readOnlyClass}">
-                            <input type="text" class="form-control" style="font-size: 0.8rem; padding: 4px;" 
-                                value="${t.completion_date || ''}" 
-                                placeholder="تاریخ انجام"
-                                onchange="updateTaskField(${t.id}, 'completion_date', this.value)"
-                                ${!isAssigned ? 'disabled' : ''}>
+                            <span class="badge" style="background:#f1f5f9; color:#1e3a8a;">${assigneeTitle}</span>
                         </td>
-                        <td class="${readOnlyClass}">
+                        <td class="${readOnlyClass}" style="white-space: nowrap;">${t.created_date || '-'}</td>
+                        <td class="${readOnlyClass}" style="white-space: nowrap;">${t.due_date || '-'}</td>
+                        
+                        <!-- ستون تاریخ انجام (قابل ویرایش توسط پیگیری‌کننده) -->
+                        <td class="${!isAssigned ? 'cell-readonly' : ''}">
+                            ${isAssigned ? `
+                                <div class="shamsi-group">
+                                    <select onchange="updateCompletionDate(${t.id}, 'y', this.value)" style="padding:4px; font-size:0.75rem;">
+                                        ${[1404, 1405, 1406].map(y => `<option value="${y}" ${(t.completion_date || '').startsWith(String(y)) ? 'selected' : ''}>${y}</option>`).join('')}
+                                    </select>
+                                    <select onchange="updateCompletionDate(${t.id}, 'm', this.value)" style="padding:4px; font-size:0.75rem;">
+                                        ${MONTH_NAMES.map((m, idx) => {
+                                            const val = String(idx+1).padStart(2,'0');
+                                            const isSel = (t.completion_date || '').includes(`/${val}/`);
+                                            return `<option value="${val}" ${isSel ? 'selected' : ''}>${m}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <select onchange="updateCompletionDate(${t.id}, 'd', this.value)" style="padding:4px; font-size:0.75rem;">
+                                        ${Array.from({length:31}, (_,i)=>String(i+1).padStart(2,'0')).map(d => {
+                                            const isSel = (t.completion_date || '').endsWith(`/${d}`);
+                                            return `<option value="${d}" ${isSel ? 'selected' : ''}>${d}</option>`;
+                                        }).join('')}
+                                    </select>
+                                </div>
+                            ` : `<span>${t.completion_date || '-'}</span>`}
+                        </td>
+
+                        <!-- ستون اقدامات و درصد پیشرفت -->
+                        <td class="${!isAssigned ? 'cell-readonly' : ''}">
                             <div class="progress-box">
                                 <input type="range" class="progress-slider" min="0" max="100" value="${t.progress || 0}" 
-                                    onchange="updateTaskField(${t.id}, 'progress', this.value)"
+                                    onchange="updateTaskField(${t.id}, 'progress', parseInt(this.value))"
                                     oninput="this.nextElementSibling.innerText = this.value + '%'"
                                     ${!isAssigned ? 'disabled' : ''}>
-                                <span style="font-size: 0.8rem; min-width: 35px;">${t.progress || 0}%</span>
+                                <span style="font-size: 0.8rem; min-width: 35px; font-weight: bold;">${t.progress || 0}%</span>
                             </div>
-                            <input type="text" class="form-control" style="font-size: 0.8rem; margin-top: 4px; padding: 4px;"
+                            <input type="text" class="form-control" style="font-size: 0.8rem; margin-top: 6px; padding: 4px;"
                                 value="${t.actions || ''}" placeholder="شرح اقدامات..."
                                 onchange="updateTaskField(${t.id}, 'actions', this.value)"
                                 ${!isAssigned ? 'disabled' : ''}>
                         </td>
-                        <td class="${currentUser.role !== 'admin' ? 'read-only' : ''}">
-                            <div style="font-size: 0.8rem; margin-bottom: 4px;">${t.details || '-'}</div>
+
+                        <!-- توضیحات و فایل‌ها -->
+                        <td class="${readOnlyClass}">
+                            <div style="font-size: 0.82rem; margin-bottom: 4px;">${t.details || '-'}</div>
                             ${renderFiles(t.files)}
                         </td>
-                        ${currentUser.role === 'admin' ? `
+
+                        <!-- دکمه عملیات فقط برای مدیر -->
+                        ${isAdmin ? `
                             <td style="text-align: center;">
                                 <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="deleteTask(${t.id})">حذف</button>
                             </td>
@@ -553,14 +669,30 @@
             updateObj[field] = value;
             const { error } = await client.from('tasks').update(updateObj).eq('id', id);
             if (error) {
-                alert('خطا در ذخیره‌سازی تغییرات: ' + error.message);
+                alert('خطا در ذخیره تغییرات: ' + error.message);
             }
         }
 
+        async function updateCompletionDate(taskId, part, value) {
+            const task = tasksList.find(t => t.id === taskId);
+            let parts = (task.completion_date || "1405/01/01").split('/');
+            if (parts.length !== 3) parts = ["1405", "01", "01"];
+
+            if (part === 'y') parts[0] = value;
+            if (part === 'm') parts[1] = value;
+            if (part === 'd') parts[2] = value;
+
+            const fullDate = parts.join('/');
+            task.completion_date = fullDate;
+            await updateTaskField(taskId, 'completion_date', fullDate);
+        }
+
         function openNewTaskModal() {
-            document.getElementById('task-id').value = '';
             document.getElementById('task-form').reset();
-            document.getElementById('modal-task-title').innerText = 'ثبت فعالیت جدید';
+            const today = new Date();
+            const todayJalali = gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+            populateShamsiDropdowns('reg', todayJalali);
+            populateShamsiDropdowns('due', todayJalali);
             document.getElementById('task-modal').style.display = 'flex';
         }
 
@@ -571,21 +703,22 @@
         async function saveTask(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-save-task');
-            btn.innerText = 'در حال ذخیره...';
+            btn.innerText = 'در حال ذخیره‌سازی...';
             btn.disabled = true;
 
             const desc = document.getElementById('task-description').value;
             const assignee = document.getElementById('task-assignee').value;
-            const dueDate = document.getElementById('task-due-date').value;
-            const createdDate = document.getElementById('task-created-date').value;
+            const details = document.getElementById('task-details').value;
+            const regDate = getShamsiString('reg');
+            const dueDate = getShamsiString('due');
             const fileInput = document.getElementById('task-files-input');
 
             let uploadedFiles = [];
             if (fileInput.files.length > 0) {
                 for (let file of fileInput.files) {
-                    const ext = file.name.split('.').pop();
-                    const path = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                    const { data: uploadData, error: uploadErr } = await client.storage
+                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                    const path = `${Date.now()}_${cleanName}`;
+                    const { error: uploadErr } = await client.storage
                         .from('task-files')
                         .upload(path, file);
 
@@ -599,8 +732,9 @@
             const { error } = await client.from('tasks').insert([{
                 description: desc,
                 assignee: assignee,
+                created_date: regDate,
                 due_date: dueDate,
-                created_date: createdDate,
+                details: details,
                 files: uploadedFiles,
                 progress: 0,
                 actions: '',
@@ -613,23 +747,3 @@
             if (error) {
                 alert('خطا در ثبت فعالیت: ' + error.message);
             } else {
-                closeModal();
-                loadTasks();
-            }
-        }
-
-        async function deleteTask(id) {
-            if (!confirm('آیا از حذف این فعالیت اطمینان دارید؟')) return;
-            const { error } = await client.from('tasks').delete().eq('id', id);
-            if (!error) {
-                loadTasks();
-            } else {
-                alert('خطا در حذف: ' + error.message);
-            }
-        }
-
-        // راه‌اندازی اولیه
-        window.addEventListener('DOMContentLoaded', initApp);
-    </script>
-</body>
-</html>
