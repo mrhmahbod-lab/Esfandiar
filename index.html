@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>پروژه احداث ساختمان اسفندیار - شرکت مهراصل</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
         :root {
             --primary: #1e3a8a;
@@ -22,17 +22,10 @@
         body { background-color: var(--bg); color: var(--text); padding: 16px; direction: rtl; }
 
         .header-card {
-            background: var(--card);
-            border-radius: 12px;
-            padding: 16px 24px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-            flex-wrap: wrap;
-            gap: 16px;
+            background: var(--card); border-radius: 12px; padding: 16px 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex;
+            align-items: center; justify-content: space-between; margin-bottom: 20px;
+            border: 1px solid var(--border); flex-wrap: wrap; gap: 16px;
         }
 
         .header-brand { display: flex; align-items: center; gap: 16px; }
@@ -138,6 +131,7 @@
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
+            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود کاربران عادی بدون رمز عبور جهت تسهیل کارگاهی است.</p>
             <div class="form-group">
                 <label>انتخاب کاربر:</label>
                 <select id="login-user-select" class="form-control" onchange="togglePasswordField()">
@@ -212,8 +206,14 @@
 
     <script>
         const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE";
-        const db = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."; // کلید واقعی خود را اینجا قرار دهید
+
+        let db = null;
+        try {
+            db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        } catch(e) {
+            console.error("خطا در ایجاد اتصال Supabase:", e);
+        }
 
         const USERS = {
             'mahbod': { name: 'مهندس مهبد', title: 'مدیر پروژه', role: 'admin' },
@@ -298,7 +298,7 @@
 
         async function fetchTasks() {
             if (!db) {
-                document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در لود کتابخانه پایگاه داده</td></tr>';
+                document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در ارتباط با پایگاه داده</td></tr>';
                 return;
             }
             const { data, error } = await db.from('tasks').select('*').order('id', { ascending: true });
@@ -320,17 +320,17 @@
             const isAdmin = currentUser.role === 'admin';
             tbody.innerHTML = tasks.map((t, idx) => {
                 const canEdit = isAdmin || (t.assignee === currentUser.key);
-                const readOnlyClass = !isAdmin ? 'cell-readonly' : '';
+                const readOnlyClass = !canEdit ? 'cell-readonly' : '';
                 const assigneeName = USERS[t.assignee]?.title || t.assignee;
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
 
                 return `
                     <tr id="row-${t.id}">
                         <td style="text-align:center;font-weight:bold;">${idx + 1}</td>
-                        <td class="${readOnlyClass}">${t.description || '-'}</td>
-                        <td class="${readOnlyClass}"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
-                        <td class="${readOnlyClass}" style="white-space:nowrap;">${t.created_date || '-'}</td>
-                        <td class="${readOnlyClass}" style="white-space:nowrap;">${t.due_date || '-'}</td>
+                        <td class="cell-readonly">${t.description || '-'}</td>
+                        <td class="cell-readonly"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
+                        <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
+                        <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
                         <td class="${!canEdit ? 'cell-readonly' : ''}">
                             ${canEdit ? `
                                 <div class="shamsi-group">
@@ -364,15 +364,15 @@
                         <td class="${!canEdit ? 'cell-readonly' : ''}">
                             <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات..." ${!canEdit ? 'disabled' : ''}>${t.details || ''}</textarea>
                             <div style="margin-top:6px;">
-                                ${(t.files || []).map((f, fIdx) => `
+                                ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
                                         <a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>
                                         ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile(${t.id}, ${fIdx})">×</button>` : ''}
                                     </div>
-                                `).join('')}
+                                `).join('') : ''}
                             </div>
                             ${canEdit ? `
-                                <div style="margin-top:6px; display:flex; gap:4px; align-items:center;">
+                                <div style="margin-top:6px;">
                                     <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple>
                                 </div>
                             ` : ''}
@@ -396,14 +396,22 @@
             const t = tasks.find(x => x.id === id);
             if (!t) return;
 
-            const y = document.getElementById(`comp-y-${id}`).value;
-            const m = document.getElementById(`comp-m-${id}`).value;
-            const d = document.getElementById(`comp-d-${id}`).value;
-            const completionDate = `${y}/${m}/${d}`;
+            let completionDate = t.completion_date || '1405/01/01';
+            const yEl = document.getElementById(`comp-y-${id}`);
+            const mEl = document.getElementById(`comp-m-${id}`);
+            const dEl = document.getElementById(`comp-d-${id}`);
+            if (yEl && mEl && dEl) {
+                completionDate = `${yEl.value}/${mEl.value}/${dEl.value}`;
+            }
 
-            const progress = parseInt(document.getElementById(`prog-range-${id}`).value) || 0;
-            const actions = document.getElementById(`actions-text-${id}`).value;
-            const details = document.getElementById(`details-text-${id}`).value;
+            const progressInput = document.getElementById(`prog-range-${id}`);
+            const progress = progressInput ? parseInt(progressInput.value) || 0 : (t.progress || 0);
+            
+            const actionsInput = document.getElementById(`actions-text-${id}`);
+            const actions = actionsInput ? actionsInput.value : (t.actions || '');
+
+            const detailsInput = document.getElementById(`details-text-${id}`);
+            const details = detailsInput ? detailsInput.value : (t.details || '');
 
             let updatedFiles = [...(t.files || [])];
             const fileInput = document.getElementById(`new-file-${id}`);
@@ -414,7 +422,11 @@
                     const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
                     if (!upErr) {
                         const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                        updatedFiles.push({ name: file.name, url: data.publicUrl });
+                        if (data && data.publicUrl) {
+                            updatedFiles.push({ name: file.name, url: data.publicUrl });
+                        }
+                    } else {
+                        console.error("خطا در آپلود فایل:", upErr.message);
                     }
                 }
             }
@@ -473,14 +485,16 @@
             const fileInput = document.getElementById('task-files');
 
             let uploaded = [];
-            if (fileInput.files.length > 0) {
+            if (fileInput && fileInput.files.length > 0) {
                 for (let file of fileInput.files) {
                     const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
                     const filePath = `${Date.now()}_${cleanName}`;
                     const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
                     if (!upErr) {
                         const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                        uploaded.push({ name: file.name, url: data.publicUrl });
+                        if (data && data.publicUrl) {
+                            uploaded.push({ name: file.name, url: data.publicUrl });
+                        }
                     }
                 }
             }
