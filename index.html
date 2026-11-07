@@ -11,14 +11,14 @@
       margin: 0; background: #f3f5f9; color: #172033;
       font: 14px/1.8 Tahoma, 'Segoe UI', Arial, sans-serif;
     }
-    .wrap { max-width: 1200px; margin: auto; padding: 20px; }
+    .wrap { max-width: 1250px; margin: auto; padding: 20px; }
     .panel {
       background: white; border: 1px solid #e3e7ee; border-radius: 12px;
       padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin-bottom: 20px;
     }
     h2, h3 { margin-top: 0; color: #0f172a; }
     button, input, select, textarea {
-      font-family: inherit; font-size: 14px; padding: 8px 12px;
+      font-family: inherit; font-size: 13px; padding: 8px 12px;
       border: 1px solid #cbd5e1; border-radius: 8px; outline: none;
     }
     button {
@@ -36,19 +36,24 @@
     .flex { display: flex; gap: 10px; align-items: center; }
     .space-between { justify-content: space-between; }
     .alert { padding: 12px; border-radius: 8px; margin-bottom: 15px; background: #fee2e2; color: #991b1b; }
-    .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+    .file-chip {
+      display: inline-block; background: #e2e8f0; padding: 3px 8px; border-radius: 4px;
+      font-size: 12px; margin: 2px; text-decoration: none; color: #1e293b;
+    }
+    .file-chip:hover { background: #cbd5e1; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <!-- بخش لاگین (کادرهای خالی بدون مقدار پیش‌فرض) -->
+    <!-- بخش ورود امن (کادرهای کاملاً خالی) -->
     <div id="loginPanel" class="panel" style="max-width: 400px; margin: 60px auto;">
       <h2 style="text-align: center;">ورود به سامانه اسفندیار</h2>
       <div id="loginError" class="alert hidden"></div>
       <form onsubmit="event.preventDefault(); handleLogin();">
         <div style="margin-bottom: 15px;">
           <label>نام کاربری:</label><br>
-          <input type="text" id="loginUser" style="width: 100%; margin-top: 5px;" placeholder="نام کاربری خود را وارد کنید" required autocomplete="username">
+          <input type="text" id="loginUser" style="width: 100%; margin-top: 5px;" placeholder="نام کاربری" required autocomplete="username">
         </div>
         <div style="margin-bottom: 20px;">
           <label>رمز عبور:</label><br>
@@ -58,54 +63,72 @@
       </form>
     </div>
 
-    <!-- بخش اصلی برنامه -->
+    <!-- پنل اصلی برنامه -->
     <div id="appPanel" class="panel hidden">
       <div class="flex space-between" style="margin-bottom: 20px;">
-        <h2>پروژه اسفندیار (سامانه پیگیری کارها)</h2>
+        <h2>پروژه اسفندیار (سامانه ردیابی پیشرفت)</h2>
         <div class="flex">
           <span id="userInfo" style="font-weight: bold; color: #475569;"></span>
           <button class="danger" onclick="handleLogout()">خروج</button>
         </div>
       </div>
 
-      <!-- کنترل‌های مخصوص مدیر: افزودن فعالیت و ساخت کاربر جدید -->
+      <!-- کنترل‌های ادمین -->
       <div id="adminControls" class="hidden">
-        <!-- فرم تعریف فعالیت جدید -->
+        <!-- فرم افزودن فعالیت جدید -->
         <div class="card">
           <h3>➕ اضافه کردن فعالیت جدید</h3>
-          <div class="flex" style="flex-wrap: wrap;">
-            <input type="text" id="newTaskDesc" placeholder="شرح کار..." style="flex: 2; min-width: 200px;">
-            <input type="text" id="newTaskDate" placeholder="تاریخ انجام (مثلا ۱۴۰۵/۰۲/۱۵)" style="flex: 1; min-width: 140px;">
-            <select id="newTaskAssignee" style="flex: 1; min-width: 140px;"></select>
-            <button onclick="addTask()">ثبت فعالیت</button>
+          <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="newTaskDesc" placeholder="شرح کار جدید..." required>
+            
+            <!-- تاریخ شمسی کشویی با انتخاب خودکار روز جاری -->
+            <div class="flex" style="gap: 5px;">
+              <select id="shamsiDay" style="width: 70px;"></select>
+              <select id="shamsiMonth" style="width: 110px;"></select>
+              <select id="shamsiYear" style="width: 80px;"></select>
+            </div>
+
+            <!-- انتخاب پیگیری‌کننده (کاربران ثبت شده) -->
+            <select id="newTaskAssignee"></select>
           </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <textarea id="newTaskDetails" placeholder="توضیحات تکمیلی..." rows="2"></textarea>
+            <div>
+              <label style="font-size: 12px; font-weight: bold;">📎 پیوست فایل‌ها و تصاویر:</label>
+              <input type="file" id="newTaskFiles" multiple style="width: 100%; margin-top: 4px;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip">
+              <span id="fileCountText" style="font-size: 11px; color: #64748b;">هیچ فایلی انتخاب نشده</span>
+            </div>
+          </div>
+
+          <button onclick="addTask()" style="padding: 10px 20px;">ثبت فعالیت در دیتابیس</button>
         </div>
 
-        <!-- فرم ایجاد کاربر جدید برای همکاران -->
+        <!-- فرم ساخت کاربر جدید -->
         <div class="card">
           <h3>👤 ایجاد کاربر جدید (همکاران)</h3>
           <div class="flex" style="flex-wrap: wrap;">
-            <input type="text" id="newUserName" placeholder="نام و نام خانوادگی" style="flex: 1; min-width: 130px;">
-            <input type="text" id="newUserUsername" placeholder="نام کاربری (انگلیسی)" style="flex: 1; min-width: 130px;">
-            <input type="password" id="newUserPassword" placeholder="رمز عبور" style="flex: 1; min-width: 130px;">
+            <input type="text" id="newUserName" placeholder="نام و نام خانوادگی">
+            <input type="text" id="newUserUsername" placeholder="نام کاربری (انگلیسی)">
+            <input type="password" id="newUserPassword" placeholder="رمز عبور">
             <button class="success" onclick="createUser()">ساخت کاربر</button>
           </div>
         </div>
       </div>
 
-      <!-- جدول نمایش فعالیت‌ها -->
-      <h3>لیست فعالیت‌ها</h3>
+      <!-- جدول اصلی فعالیت‌ها -->
+      <h3>جدول فعالیت‌ها</h3>
       <div style="overflow-x: auto;">
         <table>
           <thead>
             <tr>
               <th style="width: 50px;">ردیف</th>
               <th>شرح کار</th>
-              <th style="width: 130px;">تاریخ انجام</th>
-              <th style="width: 130px;">پیگیری‌کننده</th>
-              <th>توضیحات و مدارک</th>
-              <th style="width: 130px;">پیشرفت کار</th>
-              <th id="actionTh" class="hidden" style="width: 80px;">عملیات</th>
+              <th style="width: 120px;">تاریخ انجام</th>
+              <th style="width: 120px;">پیگیری‌کننده</th>
+              <th>توضیحات و مدارک پیوست</th>
+              <th style="width: 140px;">پیشرفت کار</th>
+              <th id="actionTh" class="hidden" style="width: 70px;">عملیات</th>
             </tr>
           </thead>
           <tbody id="taskTableBody"></tbody>
@@ -117,24 +140,81 @@
   <script>
     // اطلاعات دیتابیس Supabase
     const SUPABASE_URL = 'https://bdieqelvtlcwlgjgylmb.supabase.co';
-    // اگر کلید جدید را کپی کردید، مقدار زیر را با آن جایگزین کنید:
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE';
+    const SUPABASE_KEY = 'GAPGPTMASKTOKENdt1nsf5y4rwX0X';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = null;
     let tasks = [];
     let users = [];
 
+    // محاسبه تاریخ روز شمسی بر اساس تاریخ میلادی سیستم
+    function getTodayShamsi() {
+      const gDate = new Date();
+      const gy = gDate.getFullYear();
+      const gm = gDate.getMonth() + 1;
+      const gd = gDate.getDate();
+
+      const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+      let jy = (gy <= 1600) ? 0 : 979;
+      let gy2 = (gy <= 1600) ? gy - 621 : gy - 1600;
+      let days = (365 * gy2) + (parseInt((gy2 + 3) / 4)) - (parseInt((gy2 + 99) / 100)) + (parseInt((gy2 + 399) / 400)) - 80 + gd + g_d_m[gm - 1];
+      jy += 33 * (parseInt(days / 12053));
+      days %= 12053;
+      jy += 4 * (parseInt(days / 1461));
+      days %= 1461;
+      jy += parseInt((days - 1) / 365);
+      if (days > 365) days = (days - 1) % 365;
+      let jm = (days < 186) ? 1 + parseInt(days / 31) : 7 + parseInt((days - 186) / 30);
+      let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+
+      return { y: jy, m: jm, d: jd };
+    }
+
+    // مقداردهی کشویی‌های تاریخ شمسی
+    function initShamsiPickers() {
+      const daySel = document.getElementById('shamsiDay');
+      const monthSel = document.getElementById('shamsiMonth');
+      const yearSel = document.getElementById('shamsiYear');
+      if (!daySel || !monthSel || !yearSel) return;
+
+      daySel.innerHTML = '';
+      for (let i = 1; i <= 31; i++) {
+        const opt = document.createElement('option');
+        opt.value = i < 10 ? '0' + i : '' + i;
+        opt.textContent = opt.value;
+        daySel.appendChild(opt);
+      }
+
+      const months = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+      monthSel.innerHTML = '';
+      months.forEach((m, idx) => {
+        const opt = document.createElement('option');
+        const num = idx + 1;
+        opt.value = num < 10 ? '0' + num : '' + num;
+        opt.textContent = `${opt.value} - ${m}`;
+        monthSel.appendChild(opt);
+      });
+
+      yearSel.innerHTML = '';
+      for (let y = 1403; y <= 1410; y++) {
+        const opt = document.createElement('option');
+        opt.value = '' + y;
+        opt.textContent = opt.value;
+        yearSel.appendChild(opt);
+      }
+
+      // تنظیم پیش‌فرض به تاریخ امروز
+      const today = getTodayShamsi();
+      daySel.value = today.d < 10 ? '0' + today.d : '' + today.d;
+      monthSel.value = today.m < 10 ? '0' + today.m : '' + today.m;
+      yearSel.value = '' + today.y;
+    }
+
+    // لاگین
     async function handleLogin() {
       const u = document.getElementById('loginUser').value.trim();
       const p = document.getElementById('loginPass').value.trim();
       const errBox = document.getElementById('loginError');
-
-      if (!u || !p) {
-        errBox.textContent = 'لطفاً نام کاربری و رمز عبور را وارد کنید.';
-        errBox.classList.remove('hidden');
-        return;
-      }
 
       const { data, error } = await supabaseClient
         .from('app_users')
@@ -152,11 +232,8 @@
       errBox.classList.add('hidden');
       currentUser = data;
       sessionStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
-      
-      // پاک کردن مقادیر فیلدها بعد از لاگین برای امنیت
       document.getElementById('loginUser').value = '';
       document.getElementById('loginPass').value = '';
-      
       initApp();
     }
 
@@ -168,8 +245,11 @@
     }
 
     async function loadData() {
+      // فقط کاربران غیر از admin و ali خوانده شوند
       const uRes = await supabaseClient.from('app_users').select('*');
-      if (uRes.data) users = uRes.data;
+      if (uRes.data) {
+        users = uRes.data.filter(u => u.username !== 'admin' && u.username !== 'ali');
+      }
 
       const tRes = await supabaseClient.from('tasks').select('*').order('id', { ascending: true });
       if (tRes.data) tasks = tRes.data;
@@ -179,6 +259,7 @@
     }
 
     async function initApp() {
+      initShamsiPickers();
       const saved = sessionStorage.getItem('esfandiar_user');
       if (!saved) {
         document.getElementById('loginPanel').classList.remove('hidden');
@@ -188,7 +269,7 @@
       currentUser = JSON.parse(saved);
       document.getElementById('loginPanel').classList.add('hidden');
       document.getElementById('appPanel').classList.remove('hidden');
-      document.getElementById('userInfo').textContent = `${currentUser.name || currentUser.username} (${currentUser.role === 'admin' ? 'مدیر' : 'کاربر'})`;
+      document.getElementById('userInfo').textContent = `کاربر: ${currentUser.name || currentUser.username} (${currentUser.role === 'admin' ? 'مدیر' : 'همکار'})`;
 
       if (currentUser.role === 'admin') {
         document.getElementById('adminControls').classList.remove('hidden');
@@ -204,7 +285,7 @@
     function renderAssignees() {
       const sel = document.getElementById('newTaskAssignee');
       if (!sel) return;
-      sel.innerHTML = '<option value="">انتخاب مسئول...</option>';
+      sel.innerHTML = '<option value="">انتخاب پیگیری‌کننده...</option>';
       users.forEach(u => {
         const opt = document.createElement('option');
         opt.value = u.username;
@@ -218,7 +299,7 @@
       tbody.innerHTML = '';
 
       if (tasks.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b;">فعالیتی یافت نشد.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b;">هنوز فعالیتی ثبت نشده است.</td></tr>`;
         return;
       }
 
@@ -226,20 +307,31 @@
         const tr = document.createElement('tr');
         const isAdmin = currentUser.role === 'admin';
         const isMyTask = t.assignee === currentUser.username;
-        const canEdit = isAdmin || isMyTask;
+        const canEditProgress = isAdmin || isMyTask;
+
+        // ساخت لینک فایل‌های پیوست
+        let filesHtml = '';
+        if (Array.isArray(t.files) && t.files.length > 0) {
+          filesHtml = '<div style="margin-top: 5px;">' + t.files.map(f => `
+            <a href="${f.data}" download="${f.name}" class="file-chip" title="دانلود فایل">
+              📎 ${f.name}
+            </a>
+          `).join('') + '</div>';
+        }
 
         tr.innerHTML = `
           <td>${index + 1}</td>
-          <td>${t.description || ''}</td>
-          <td>${t.due_date || ''}</td>
+          <td><b>${t.description || ''}</b></td>
+          <td>${t.due_date || '-'}</td>
           <td>${t.assignee || '-'}</td>
           <td>
             <input type="text" value="${t.details || ''}" 
                    onchange="updateDetails(${t.id}, this.value)" 
-                   ${canEdit ? '' : 'disabled'} style="width: 100%;">
+                   ${canEditProgress ? '' : 'disabled'} style="width: 100%; margin-bottom: 3px;">
+            ${filesHtml}
           </td>
           <td>
-            <select onchange="updateProgress(${t.id}, this.value)" ${canEdit ? '' : 'disabled'}>
+            <select onchange="updateProgress(${t.id}, this.value)" ${canEditProgress ? '' : 'disabled'}>
               <option value="انجام نشده" ${t.progress === 'انجام نشده' ? 'selected' : ''}>انجام نشده</option>
               <option value="در حال انجام" ${t.progress === 'در حال انجام' ? 'selected' : ''}>در حال انجام</option>
               <option value="تکمیل شده" ${t.progress === 'تکمیل شده' ? 'selected' : ''}>تکمیل شده</option>
@@ -251,27 +343,60 @@
       });
     }
 
+    // خواندن فایل‌ها به صورت Data URL جهت ذخیره مطمئن در دیتابیس
+    function readFilesAsync(fileList) {
+      return Promise.all(Array.from(fileList).map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ name: file.name, data: reader.result });
+          reader.readAsDataURL(file);
+        });
+      }));
+    }
+
     async function addTask() {
       const desc = document.getElementById('newTaskDesc').value.trim();
-      const date = document.getElementById('newTaskDate').value.trim();
+      const d = document.getElementById('shamsiDay').value;
+      const m = document.getElementById('shamsiMonth').value;
+      const y = document.getElementById('shamsiYear').value;
+      const dueDate = `${y}/${m}/${d}`;
+
       const assignee = document.getElementById('newTaskAssignee').value;
+      const details = document.getElementById('newTaskDetails').value.trim();
+      const fileInput = document.getElementById('newTaskFiles');
 
       if (!desc) {
         alert('لطفاً شرح کار را وارد کنید.');
         return;
       }
 
+      let attachedFiles = [];
+      if (fileInput.files.length > 0) {
+        attachedFiles = await readFilesAsync(fileInput.files);
+      }
+
       const { error } = await supabaseClient.from('tasks').insert([
-        { description: desc, due_date: date, assignee: assignee, progress: 'انجام نشده', details: '' }
+        {
+          description: desc,
+          due_date: dueDate,
+          assignee: assignee,
+          details: details,
+          files: attachedFiles,
+          progress: 'انجام نشده'
+        }
       ]);
 
       if (error) {
-        alert('خطا در ثبت: ' + error.message);
+        alert('خطا در ثبت فعالیت: ' + error.message);
         return;
       }
 
+      // ریست کردن فرم
       document.getElementById('newTaskDesc').value = '';
-      document.getElementById('newTaskDate').value = '';
+      document.getElementById('newTaskDetails').value = '';
+      fileInput.value = '';
+      document.getElementById('fileCountText').textContent = 'هیچ فایلی انتخاب نشده';
+      initShamsiPickers();
       loadData();
     }
 
@@ -281,7 +406,7 @@
       const password = document.getElementById('newUserPassword').value.trim();
 
       if (!name || !username || !password) {
-        alert('لطفاً تمام فیلدهای کاربر را پر کنید.');
+        alert('لطفاً همه فیلدهای مشخصات کاربر را تکمیل کنید.');
         return;
       }
 
@@ -294,7 +419,7 @@
         return;
       }
 
-      alert(`کاربر ${name} با موفقیت ایجاد شد.`);
+      alert(`کاربر ${name} با موفقیت ساخته شد.`);
       document.getElementById('newUserName').value = '';
       document.getElementById('newUserUsername').value = '';
       document.getElementById('newUserPassword').value = '';
@@ -314,6 +439,11 @@
       await supabaseClient.from('tasks').delete().eq('id', id);
       loadData();
     }
+
+    document.getElementById('newTaskFiles')?.addEventListener('change', function() {
+      const count = this.files.length;
+      document.getElementById('fileCountText').textContent = count > 0 ? `${count} فایل انتخاب شد.` : 'هیچ فایلی انتخاب نشده';
+    });
 
     window.onload = initApp;
   </script>
