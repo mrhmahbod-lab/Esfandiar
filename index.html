@@ -1,451 +1,63 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>پروژه اسفندیار</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: #f3f5f9; color: #172033;
-      font: 14px/1.8 Tahoma, 'Segoe UI', Arial, sans-serif;
-    }
-    .wrap { max-width: 1250px; margin: auto; padding: 20px; }
-    .panel {
-      background: white; border: 1px solid #e3e7ee; border-radius: 12px;
-      padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin-bottom: 20px;
-    }
-    h2, h3 { margin-top: 0; color: #0f172a; }
-    button, input, select, textarea {
-      font-family: inherit; font-size: 13px; padding: 8px 12px;
-      border: 1px solid #cbd5e1; border-radius: 8px; outline: none;
-    }
-    button {
-      background: #2563eb; color: white; border: none; cursor: pointer; font-weight: bold;
-    }
-    button:hover { background: #1d4ed8; }
-    button.danger { background: #dc2626; }
-    button.danger:hover { background: #b91c1c; }
-    button.success { background: #16a34a; }
-    button.success:hover { background: #15803d; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: right; vertical-align: middle; }
-    th { background: #f8fafc; color: #334155; }
-    .hidden { display: none !important; }
-    .flex { display: flex; gap: 10px; align-items: center; }
-    .space-between { justify-content: space-between; }
-    .alert { padding: 12px; border-radius: 8px; margin-bottom: 15px; background: #fee2e2; color: #991b1b; }
-    .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
-    .file-chip {
-      display: inline-block; background: #e2e8f0; padding: 3px 8px; border-radius: 4px;
-      font-size: 12px; margin: 2px; text-decoration: none; color: #1e293b;
-    }
-    .file-chip:hover { background: #cbd5e1; }
-  </style>
-</head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>پروژه احداث ساختمان اسفندیار</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--ink:#182b3d;--muted:#64748b;--line:#dfe7ee;--brand:#126b68;--brand2:#0c5351;--bg:#f3f7f8;--white:#fff;--red:#b42318;--locked:#e2e8f0}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Vazirmatn,system-ui,sans-serif;color:var(--ink)}button,input,select,textarea{font:inherit}button{cursor:pointer}.top{background:linear-gradient(110deg,#103e49,#16736d);color:white;padding:18px clamp(16px,4vw,48px);display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:14px}.brand img{width:54px;height:54px;object-fit:contain;background:white;border-radius:13px;padding:5px}.brand h1{font-size:clamp(17px,2.5vw,24px);margin:0 0 3px}.brand p{margin:0;color:#d2e9e7;font-size:13px}.headright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.userline{font-size:13px;text-align:left}.badge{display:inline-block;border-radius:99px;padding:3px 10px;background:#d8f3e5;color:#17633e;font-size:12px;font-weight:700}.btn{border:0;border-radius:9px;background:var(--brand);color:white;padding:9px 14px;font-weight:600}.btn:hover{background:var(--brand2)}.btn.light{background:#ffffff20;border:1px solid #ffffff50}.btn.secondary{background:#e7eff1;color:#23434b}.btn.danger{background:#b42318}.btn.small{padding:6px 10px;font-size:12px}.wrap{max-width:1500px;margin:auto;padding:22px clamp(12px,3vw,36px)}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}.toolbar h2{font-size:18px;margin:0}.tools{display:flex;gap:8px;flex-wrap:wrap}.tablebox{overflow:auto;border:1px solid var(--line);border-radius:14px;background:white;box-shadow:0 8px 24px #173a4a0a}table{border-collapse:collapse;width:100%;min-width:1180px}th,td{padding:12px 11px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top;font-size:13px}th{background:#edf4f5;color:#294650;font-weight:700;white-space:nowrap;position:sticky;top:0;z-index:1}tbody tr:hover{background:#fbfdfd}td.locked{background:var(--locked);color:#475569}.index{font-weight:800;color:#54717a}.assignee small{display:block;color:var(--muted)}.progress{height:7px;background:#e5edf0;border-radius:10px;overflow:hidden;margin-top:8px;min-width:110px}.progress i{height:100%;display:block;background:#1b9b76;border-radius:10px}.files{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.filelink{font-size:11px;text-decoration:none;color:#0c665d;background:#e4f5ef;border-radius:20px;padding:3px 8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hint{color:var(--muted);font-size:12px}.notice{padding:12px 15px;border-radius:10px;margin:10px 0;display:none}.notice.error{display:block;background:#fff0ef;color:#9c241b}.notice.ok{display:block;background:#eaf8ef;color:#17633e}.login{max-width:440px;margin:8vh auto;background:white;padding:28px;border-radius:16px;box-shadow:0 12px 40px #14394312}.login h2{margin:0 0 4px}.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:13px;font-weight:600}.field input,.field select,.field textarea{width:100%;border:1px solid #cbd5df;border-radius:8px;padding:9px 10px;background:white;color:var(--ink)}.field textarea{min-height:80px;resize:vertical}.modal{position:fixed;inset:0;background:#0a1f2bb3;display:none;align-items:center;justify-content:center;padding:15px;z-index:5}.modal.open{display:flex}.dialog{background:white;width:min(700px,100%);max-height:92vh;overflow:auto;border-radius:16px;padding:20px;box-shadow:0 20px 70px #001b2b40}.dialog h2{font-size:19px;margin:0 0 13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}.dateparts{display:flex;gap:5px}.dateparts select{min-width:0;flex:1;padding:8px 4px;border:1px solid #cbd5df;border-radius:7px;background:#fff}.dateparts.disabled select{background:var(--locked);color:#475569}.dlgactions{display:flex;gap:8px;justify-content:flex-start;margin-top:16px;flex-wrap:wrap}.userslist{width:100%;border-collapse:collapse}.userslist td,.userslist th{padding:9px;border-bottom:1px solid var(--line)}.hidden{display:none!important}.mobilehint{display:none}@media(max-width:680px){.top{align-items:flex-start}.headright{justify-content:flex-end}.userline{max-width:135px}.grid{grid-template-columns:1fr}.mobilehint{display:block}.brand img{width:44px;height:44px}}
+</style></head>
 <body>
-  <div class="wrap">
-    <!-- بخش ورود امن (کادرهای کاملاً خالی) -->
-    <div id="loginPanel" class="panel" style="max-width: 400px; margin: 60px auto;">
-      <h2 style="text-align: center;">ورود به سامانه اسفندیار</h2>
-      <div id="loginError" class="alert hidden"></div>
-      <form onsubmit="event.preventDefault(); handleLogin();">
-        <div style="margin-bottom: 15px;">
-          <label>نام کاربری:</label><br>
-          <input type="text" id="loginUser" style="width: 100%; margin-top: 5px;" placeholder="نام کاربری" required autocomplete="username">
-        </div>
-        <div style="margin-bottom: 20px;">
-          <label>رمز عبور:</label><br>
-          <input type="password" id="loginPass" style="width: 100%; margin-top: 5px;" placeholder="رمز عبور" required autocomplete="current-password">
-        </div>
-        <button type="submit" style="width: 100%; padding: 10px;">ورود به سیستم</button>
-      </form>
-    </div>
-
-    <!-- پنل اصلی برنامه -->
-    <div id="appPanel" class="panel hidden">
-      <div class="flex space-between" style="margin-bottom: 20px;">
-        <h2>پروژه اسفندیار (سامانه ردیابی پیشرفت)</h2>
-        <div class="flex">
-          <span id="userInfo" style="font-weight: bold; color: #475569;"></span>
-          <button class="danger" onclick="handleLogout()">خروج</button>
-        </div>
-      </div>
-
-      <!-- کنترل‌های ادمین -->
-      <div id="adminControls" class="hidden">
-        <!-- فرم افزودن فعالیت جدید -->
-        <div class="card">
-          <h3>➕ اضافه کردن فعالیت جدید</h3>
-          <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; margin-bottom: 10px;">
-            <input type="text" id="newTaskDesc" placeholder="شرح کار جدید..." required>
-            
-            <!-- تاریخ شمسی کشویی با انتخاب خودکار روز جاری -->
-            <div class="flex" style="gap: 5px;">
-              <select id="shamsiDay" style="width: 70px;"></select>
-              <select id="shamsiMonth" style="width: 110px;"></select>
-              <select id="shamsiYear" style="width: 80px;"></select>
-            </div>
-
-            <!-- انتخاب پیگیری‌کننده (کاربران ثبت شده) -->
-            <select id="newTaskAssignee"></select>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
-            <textarea id="newTaskDetails" placeholder="توضیحات تکمیلی..." rows="2"></textarea>
-            <div>
-              <label style="font-size: 12px; font-weight: bold;">📎 پیوست فایل‌ها و تصاویر:</label>
-              <input type="file" id="newTaskFiles" multiple style="width: 100%; margin-top: 4px;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip">
-              <span id="fileCountText" style="font-size: 11px; color: #64748b;">هیچ فایلی انتخاب نشده</span>
-            </div>
-          </div>
-
-          <button onclick="addTask()" style="padding: 10px 20px;">ثبت فعالیت در دیتابیس</button>
-        </div>
-
-        <!-- فرم ساخت کاربر جدید -->
-        <div class="card">
-          <h3>👤 ایجاد کاربر جدید (همکاران)</h3>
-          <div class="flex" style="flex-wrap: wrap;">
-            <input type="text" id="newUserName" placeholder="نام و نام خانوادگی">
-            <input type="text" id="newUserUsername" placeholder="نام کاربری (انگلیسی)">
-            <input type="password" id="newUserPassword" placeholder="رمز عبور">
-            <button class="success" onclick="createUser()">ساخت کاربر</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- جدول اصلی فعالیت‌ها -->
-      <h3>جدول فعالیت‌ها</h3>
-      <div style="overflow-x: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 50px;">ردیف</th>
-              <th>شرح کار</th>
-              <th style="width: 120px;">تاریخ انجام</th>
-              <th style="width: 120px;">پیگیری‌کننده</th>
-              <th>توضیحات و مدارک پیوست</th>
-              <th style="width: 140px;">پیشرفت کار</th>
-              <th id="actionTh" class="hidden" style="width: 70px;">عملیات</th>
-            </tr>
-          </thead>
-          <tbody id="taskTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // اطلاعات دیتابیس Supabase
-    const SUPABASE_URL = 'https://bdieqelvtlcwlgjgylmb.supabase.co';
-    const SUPABASE_KEY = 'GAPGPTMASKTOKENdt1nsf5y4rwX0X';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let currentUser = null;
-    let tasks = [];
-    let users = [];
-
-    // محاسبه تاریخ روز شمسی بر اساس تاریخ میلادی سیستم
-    function getTodayShamsi() {
-      const gDate = new Date();
-      const gy = gDate.getFullYear();
-      const gm = gDate.getMonth() + 1;
-      const gd = gDate.getDate();
-
-      const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-      let jy = (gy <= 1600) ? 0 : 979;
-      let gy2 = (gy <= 1600) ? gy - 621 : gy - 1600;
-      let days = (365 * gy2) + (parseInt((gy2 + 3) / 4)) - (parseInt((gy2 + 99) / 100)) + (parseInt((gy2 + 399) / 400)) - 80 + gd + g_d_m[gm - 1];
-      jy += 33 * (parseInt(days / 12053));
-      days %= 12053;
-      jy += 4 * (parseInt(days / 1461));
-      days %= 1461;
-      jy += parseInt((days - 1) / 365);
-      if (days > 365) days = (days - 1) % 365;
-      let jm = (days < 186) ? 1 + parseInt(days / 31) : 7 + parseInt((days - 186) / 30);
-      let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
-
-      return { y: jy, m: jm, d: jd };
-    }
-
-    // مقداردهی کشویی‌های تاریخ شمسی
-    function initShamsiPickers() {
-      const daySel = document.getElementById('shamsiDay');
-      const monthSel = document.getElementById('shamsiMonth');
-      const yearSel = document.getElementById('shamsiYear');
-      if (!daySel || !monthSel || !yearSel) return;
-
-      daySel.innerHTML = '';
-      for (let i = 1; i <= 31; i++) {
-        const opt = document.createElement('option');
-        opt.value = i < 10 ? '0' + i : '' + i;
-        opt.textContent = opt.value;
-        daySel.appendChild(opt);
-      }
-
-      const months = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-      monthSel.innerHTML = '';
-      months.forEach((m, idx) => {
-        const opt = document.createElement('option');
-        const num = idx + 1;
-        opt.value = num < 10 ? '0' + num : '' + num;
-        opt.textContent = `${opt.value} - ${m}`;
-        monthSel.appendChild(opt);
-      });
-
-      yearSel.innerHTML = '';
-      for (let y = 1403; y <= 1410; y++) {
-        const opt = document.createElement('option');
-        opt.value = '' + y;
-        opt.textContent = opt.value;
-        yearSel.appendChild(opt);
-      }
-
-      // تنظیم پیش‌فرض به تاریخ امروز
-      const today = getTodayShamsi();
-      daySel.value = today.d < 10 ? '0' + today.d : '' + today.d;
-      monthSel.value = today.m < 10 ? '0' + today.m : '' + today.m;
-      yearSel.value = '' + today.y;
-    }
-
-    // لاگین
-    async function handleLogin() {
-      const u = document.getElementById('loginUser').value.trim();
-      const p = document.getElementById('loginPass').value.trim();
-      const errBox = document.getElementById('loginError');
-
-      const { data, error } = await supabaseClient
-        .from('app_users')
-        .select('*')
-        .eq('username', u)
-        .eq('password', p)
-        .maybeSingle();
-
-      if (error || !data) {
-        errBox.textContent = 'نام کاربری یا رمز عبور اشتباه است.';
-        errBox.classList.remove('hidden');
-        return;
-      }
-
-      errBox.classList.add('hidden');
-      currentUser = data;
-      sessionStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
-      document.getElementById('loginUser').value = '';
-      document.getElementById('loginPass').value = '';
-      initApp();
-    }
-
-    function handleLogout() {
-      currentUser = null;
-      sessionStorage.removeItem('esfandiar_user');
-      document.getElementById('appPanel').classList.add('hidden');
-      document.getElementById('loginPanel').classList.remove('hidden');
-    }
-
-    async function loadData() {
-      // فقط کاربران غیر از admin و ali خوانده شوند
-      const uRes = await supabaseClient.from('app_users').select('*');
-      if (uRes.data) {
-        users = uRes.data.filter(u => u.username !== 'admin' && u.username !== 'ali');
-      }
-
-      const tRes = await supabaseClient.from('tasks').select('*').order('id', { ascending: true });
-      if (tRes.data) tasks = tRes.data;
-
-      renderTasks();
-      renderAssignees();
-    }
-
-    async function initApp() {
-      initShamsiPickers();
-      const saved = sessionStorage.getItem('esfandiar_user');
-      if (!saved) {
-        document.getElementById('loginPanel').classList.remove('hidden');
-        document.getElementById('appPanel').classList.add('hidden');
-        return;
-      }
-      currentUser = JSON.parse(saved);
-      document.getElementById('loginPanel').classList.add('hidden');
-      document.getElementById('appPanel').classList.remove('hidden');
-      document.getElementById('userInfo').textContent = `کاربر: ${currentUser.name || currentUser.username} (${currentUser.role === 'admin' ? 'مدیر' : 'همکار'})`;
-
-      if (currentUser.role === 'admin') {
-        document.getElementById('adminControls').classList.remove('hidden');
-        document.getElementById('actionTh').classList.remove('hidden');
-      } else {
-        document.getElementById('adminControls').classList.add('hidden');
-        document.getElementById('actionTh').classList.add('hidden');
-      }
-
-      await loadData();
-    }
-
-    function renderAssignees() {
-      const sel = document.getElementById('newTaskAssignee');
-      if (!sel) return;
-      sel.innerHTML = '<option value="">انتخاب پیگیری‌کننده...</option>';
-      users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.username;
-        opt.textContent = `${u.name || u.username} (${u.username})`;
-        sel.appendChild(opt);
-      });
-    }
-
-    function renderTasks() {
-      const tbody = document.getElementById('taskTableBody');
-      tbody.innerHTML = '';
-
-      if (tasks.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b;">هنوز فعالیتی ثبت نشده است.</td></tr>`;
-        return;
-      }
-
-      tasks.forEach((t, index) => {
-        const tr = document.createElement('tr');
-        const isAdmin = currentUser.role === 'admin';
-        const isMyTask = t.assignee === currentUser.username;
-        const canEditProgress = isAdmin || isMyTask;
-
-        // ساخت لینک فایل‌های پیوست
-        let filesHtml = '';
-        if (Array.isArray(t.files) && t.files.length > 0) {
-          filesHtml = '<div style="margin-top: 5px;">' + t.files.map(f => `
-            <a href="${f.data}" download="${f.name}" class="file-chip" title="دانلود فایل">
-              📎 ${f.name}
-            </a>
-          `).join('') + '</div>';
-        }
-
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td><b>${t.description || ''}</b></td>
-          <td>${t.due_date || '-'}</td>
-          <td>${t.assignee || '-'}</td>
-          <td>
-            <input type="text" value="${t.details || ''}" 
-                   onchange="updateDetails(${t.id}, this.value)" 
-                   ${canEditProgress ? '' : 'disabled'} style="width: 100%; margin-bottom: 3px;">
-            ${filesHtml}
-          </td>
-          <td>
-            <select onchange="updateProgress(${t.id}, this.value)" ${canEditProgress ? '' : 'disabled'}>
-              <option value="انجام نشده" ${t.progress === 'انجام نشده' ? 'selected' : ''}>انجام نشده</option>
-              <option value="در حال انجام" ${t.progress === 'در حال انجام' ? 'selected' : ''}>در حال انجام</option>
-              <option value="تکمیل شده" ${t.progress === 'تکمیل شده' ? 'selected' : ''}>تکمیل شده</option>
-            </select>
-          </td>
-          ${isAdmin ? `<td><button class="danger" onclick="deleteTask(${t.id})">حذف</button></td>` : ''}
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // خواندن فایل‌ها به صورت Data URL جهت ذخیره مطمئن در دیتابیس
-    function readFilesAsync(fileList) {
-      return Promise.all(Array.from(fileList).map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve({ name: file.name, data: reader.result });
-          reader.readAsDataURL(file);
-        });
-      }));
-    }
-
-    async function addTask() {
-      const desc = document.getElementById('newTaskDesc').value.trim();
-      const d = document.getElementById('shamsiDay').value;
-      const m = document.getElementById('shamsiMonth').value;
-      const y = document.getElementById('shamsiYear').value;
-      const dueDate = `${y}/${m}/${d}`;
-
-      const assignee = document.getElementById('newTaskAssignee').value;
-      const details = document.getElementById('newTaskDetails').value.trim();
-      const fileInput = document.getElementById('newTaskFiles');
-
-      if (!desc) {
-        alert('لطفاً شرح کار را وارد کنید.');
-        return;
-      }
-
-      let attachedFiles = [];
-      if (fileInput.files.length > 0) {
-        attachedFiles = await readFilesAsync(fileInput.files);
-      }
-
-      const { error } = await supabaseClient.from('tasks').insert([
-        {
-          description: desc,
-          due_date: dueDate,
-          assignee: assignee,
-          details: details,
-          files: attachedFiles,
-          progress: 'انجام نشده'
-        }
-      ]);
-
-      if (error) {
-        alert('خطا در ثبت فعالیت: ' + error.message);
-        return;
-      }
-
-      // ریست کردن فرم
-      document.getElementById('newTaskDesc').value = '';
-      document.getElementById('newTaskDetails').value = '';
-      fileInput.value = '';
-      document.getElementById('fileCountText').textContent = 'هیچ فایلی انتخاب نشده';
-      initShamsiPickers();
-      loadData();
-    }
-
-    async function createUser() {
-      const name = document.getElementById('newUserName').value.trim();
-      const username = document.getElementById('newUserUsername').value.trim();
-      const password = document.getElementById('newUserPassword').value.trim();
-
-      if (!name || !username || !password) {
-        alert('لطفاً همه فیلدهای مشخصات کاربر را تکمیل کنید.');
-        return;
-      }
-
-      const { error } = await supabaseClient.from('app_users').insert([
-        { name: name, username: username, password: password, role: 'user' }
-      ]);
-
-      if (error) {
-        alert('خطا در ساخت کاربر: ' + error.message);
-        return;
-      }
-
-      alert(`کاربر ${name} با موفقیت ساخته شد.`);
-      document.getElementById('newUserName').value = '';
-      document.getElementById('newUserUsername').value = '';
-      document.getElementById('newUserPassword').value = '';
-      loadData();
-    }
-
-    async function updateProgress(id, val) {
-      await supabaseClient.from('tasks').update({ progress: val }).eq('id', id);
-    }
-
-    async function updateDetails(id, val) {
-      await supabaseClient.from('tasks').update({ details: val }).eq('id', id);
-    }
-
-    async function deleteTask(id) {
-      if (!confirm('آیا از حذف این ردیف مطمئن هستید؟')) return;
-      await supabaseClient.from('tasks').delete().eq('id', id);
-      loadData();
-    }
-
-    document.getElementById('newTaskFiles')?.addEventListener('change', function() {
-      const count = this.files.length;
-      document.getElementById('fileCountText').textContent = count > 0 ? `${count} فایل انتخاب شد.` : 'هیچ فایلی انتخاب نشده';
-    });
-
-    window.onload = initApp;
-  </script>
-</body>
-</html>
+<header class="top"><div class="brand"><img id="logo" src="logo.webp" alt="لوگوی شرکت"><div><h1>پروژه احداث ساختمان اسفندیار</h1><p>شرکت تولیدی مهراصل</p></div></div><div class="headright hidden" id="headerUser"><div class="userline"><strong id="who"></strong><br><span id="title"></span> <span class="badge" id="role"></span></div><button class="btn light small" id="settings">تنظیمات اتصال</button><button class="btn light small" id="logout">خروج</button></div></header>
+<main class="wrap"><section id="loginView" class="login"><h2>ورود به سامانه</h2><p class="hint">نام کاربری و رمز عبور خود را وارد کنید.</p><div id="loginMsg" class="notice"></div><form id="loginForm"><div class="field"><label for="username">نام کاربری</label><input id="username" autocomplete="username" required></div><div class="field"><label for="password">رمز عبور</label><input id="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">ورود</button></form></section>
+<section id="appView" class="hidden"><div class="toolbar"><div><h2>فهرست فعالیت‌ها</h2><span class="hint" id="rowCount"></span></div><div class="tools"><button id="usersBtn" class="btn secondary hidden">مدیریت کاربران</button><button id="addTask" class="btn hidden">ثبت ردیف جدید</button></div></div><div id="appMsg" class="notice"></div><p class="hint mobilehint">برای مشاهده همه ستون‌ها، جدول را افقی پیمایش کنید. خانه‌های خاکستری برای شما غیرقابل ویرایش‌اند.</p><div class="tablebox"><table><thead><tr><th>ردیف</th><th>شرح فعالیت</th><th>پیگیری‌کننده</th><th>تاریخ ثبت</th><th>مهلت انجام</th><th>تاریخ انجام</th><th>اقدامات</th><th>توضیحات و فایل‌ها</th></tr></thead><tbody id="rows"></tbody></table></div></section></main>
+<div class="modal" id="keyModal"><div class="dialog" style="max-width:460px"><h2>تنظیم اتصال سامانه</h2><p class="hint">کلید عمومی (Anon / Publishable) پروژه Supabase را وارد کنید. کلید فقط در مرورگر شما ذخیره می‌شود.</p><div class="field"><label for="anonKey">Supabase Anon/Public Key</label><input id="anonKey" autocomplete="off" spellcheck="false"></div><div class="dlgactions"><button class="btn" id="saveKey">ذخیره و اتصال</button><button class="btn secondary" id="cancelKey">بستن</button></div></div></div>
+<div class="modal" id="taskModal"><div class="dialog"><h2 id="taskHeading">ثبت فعالیت</h2><div id="taskMsg" class="notice"></div><form id="taskForm"><div class="grid"><div class="field adminField"><label>شرح فعالیت</label><textarea id="description"></textarea></div><div class="field adminField"><label>پیگیری‌کننده</label><select id="assignee"></select></div><div class="field adminField"><label>تاریخ ثبت</label><div id="registeredDate"></div></div><div class="field adminField"><label>مهلت انجام</label><div id="dueDate"></div></div><div class="field"><label>تاریخ انجام</label><div id="completedDate"></div></div><div class="field"><label>درصد پیشرفت: <span id="progressLabel">0</span>%</label><input type="range" id="progress" min="0" max="100" value="0"></div><div class="field"><label>اقدامات</label><textarea id="actionText"></textarea></div><div class="field adminField"><label>توضیحات</label><textarea id="details"></textarea></div></div><div class="dlgactions"><button class="btn" type="submit">ذخیره</button><button class="btn secondary" type="button" id="closeTask">انصراف</button></div></form></div></div>
+<div class="modal" id="usersModal"><div class="dialog"><h2>مدیریت کاربران</h2><div id="usersMsg" class="notice"></div><div id="usersTable"></div><h3 style="font-size:15px;margin:18px 0 6px">افزودن کاربر عادی</h3><form id="newUserForm"><div class="grid"><div class="field"><label>عنوان</label><input id="newTitle" required placeholder="مهندس ناظر"></div><div class="field"><label>نام و نام خانوادگی</label><input id="newFullName" required></div><div class="field"><label>نام کاربری</label><input id="newUsername" required autocomplete="off"></div><div class="field"><label>رمز عبور</label><input id="newPassword" type="password" required autocomplete="new-password"></div></div><div class="dlgactions"><button class="btn">ثبت کاربر</button><button type="button" class="btn secondary" id="closeUsers">بستن</button></div></form></div></div>
+<script>
+'use strict';
+const SUPABASE_URL='https://bdieqelvtlcwlgjgylmb.supabase.co', KEY_NAME='esfandiar_anon_key';
+let client=null,user=null,profile=null,tasks=[],profiles=[],editing=null,filesByTask={};
+const $=id=>document.getElementById(id), admin=()=>profile?.role==='admin';
+$('logo').addEventListener('error',e=>{const box=e.currentTarget.parentElement; e.currentTarget.remove();const t=document.createElement('strong');t.textContent='شرکت تولیدی مهراصل';box.prepend(t)});
+function message(el,text,type='error'){el.textContent=text;el.className='notice '+type;}
+function clearMessage(el){el.textContent='';el.className='notice'}
+function modal(id,on=true){$(id).classList.toggle('open',on)}
+function initClient(key){try{client=window.supabase.createClient(SUPABASE_URL,key);return true}catch(e){console.error(e);return false}}
+const months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function div(a,b){return Math.floor(a/b)}
+function g2d(gy,gm,gd){let d=div((gy+div(gm-8,6)+100100)*1461,4)+div(153*((gm+9)%12)+2,5)+gd-34840408;d=d-div(Math.floor((gy+100100+div(gm-8,6))/100)*3,4)+752;return d}
+function d2g(j){let jdn=j+34840408;let depo= jdn-div(Math.floor((4*jdn+3)/146097)*146097,4);let y=div(depo*4+3,1461);let doy=depo-div(y*1461,4);let mp=div(5*doy+2,153);let d=doy-div(153*mp+2,5)+1;let m=mp+3-(mp<10?0:12);y+=m<=2?1:0;return [y,m,d]}
+function jalCal(jy){let breaks=[-61,9,38,199,426,686,756,818,1111,1181,1210,1635,2060,2097,2192,2262,2324,2394,2456,3178],gy=jy+621,leapJ=-14,jp=breaks[0],jm,jump;for(let i=1;i<breaks.length;i++){jm=breaks[i];jump=jm-jp;if(jy<jm)break;leapJ+=div(jump,33)*8+div(jump%33,4);jp=jm}let n=jy-jp;leapJ+=div(n,33)*8+div(n%33+3,4);if(jump%33===4&&jump-n===4)leapJ++;let leapG=div(gy,4)-div((div(gy,100)+1)*3,4)-150;return {gy,leap:((leapJ-leapG)%4+4)%4}}
+function jalaliLeap(y){return jalCal(y).leap===0}
+function j2d(jy,jm,jd){let r=jalCal(jy);return g2d(r.gy,3, r.leap+20)+(jm-1)*31-div(jm,7)*(jm-7)+jd-1}
+function d2j(gy,gm,gd){let jdn=g2d(gy,gm,gd),jy=gy-621,r=jalCal(jy),jdn1f=g2d(r.gy,3,r.leap+20),k=jdn-jdn1f,jm,jd;if(k>=0){if(k<=185){jm=1+div(k,31);jd=k%31+1;return [jy,jm,jd]}k-=186}else{jy--;k+=179;if(r.leap===1)k++}jm=7+div(k,30);jd=k%30+1;return [jy,jm,jd]}
+function isoToJ(iso){if(!iso)return null;let [y,m,d]=iso.slice(0,10).split('-').map(Number);return d2j(y,m,d)}
+function jalaliToGregorian(y,m,d){y=Number(y);m=Number(m);d=Number(d);if(!Number.isInteger(y)||!Number.isInteger(m)||!Number.isInteger(d)||y<1||m<1||m>12||d<1)return '';const max=m<=6?31:m<=11?30:(jalaliLeap(y)?30:29);if(d>max)return '';const [gy,gm,gd]=d2g(j2d(y,m,d));return `${String(gy).padStart(4,'0')}-${String(gm).padStart(2,'0')}-${String(gd).padStart(2,'0')}`}
+function jToIso(y,m,d){return jalaliToGregorian(y,m,d)}
+function todayJ(){let n=new Date();return d2j(n.getFullYear(),n.getMonth()+1,n.getDate())}
+function makeDate(id,value,disabled=false){let wrap=$(id);wrap.replaceChildren();wrap.className='dateparts'+(disabled?' disabled':'');let v=value?isoToJ(value):null;if(id==='registeredDate'&&!v)v=todayJ();let [cy,cm,cd]=v||[0,0,0];let ys=[1403,1404,1405,1406];function sel(opts,current,placeholder){let s=document.createElement('select');s.disabled=disabled;let o=document.createElement('option');o.value='';o.textContent=placeholder;s.append(o);opts.forEach(([val,label])=>{let x=document.createElement('option');x.value=val;x.textContent=label;if(+val===+current)x.selected=true;s.append(x)});s.addEventListener('change',()=>updateDays(wrap));return s}let y=sel(ys.map(x=>[x,x]),cy,'سال'),m=sel(months.map((x,i)=>[i+1,x]),cm,'ماه'),d=sel([],cd,'روز');wrap.append(y,m,d);wrap.dataset.initial=cd||'';updateDays(wrap);if(cd)d.value=String(cd)}
+function updateDays(w){let [ys,ms,ds]=w.querySelectorAll('select'),year=+ys.value,month=+ms.value,old=+ds.value||+w.dataset.initial||0;let max=month<=6?31:month<=11?30:jalaliLeap(year)?30:29;ds.replaceChildren();let o=document.createElement('option');o.value='';o.textContent='روز';ds.append(o);for(let i=1;i<=max;i++){let x=document.createElement('option');x.value=i;x.textContent=i;if(i===old)x.selected=true;ds.append(x)}if(old>max)ds.value=''}
+function dateVal(id){let s=$(id).querySelectorAll('select');if(!s[0]?.value||!s[1]?.value||!s[2]?.value)return null;return jToIso(...[...s].map(x=>+x.value))}
+function displayDate(iso){let j=isoToJ(iso);return j?`${j[2]} ${months[j[1]-1]} ${j[0]}`:'—'}
+function setDate(id,iso,disabled=false){makeDate(id,iso,disabled)}
+async function loadProfile(){let {data:{user:u},error}=await client.auth.getUser();if(error||!u)return false;user=u;let r=await client.from('profiles').select('*').eq('id',u.id).single();if(r.error){message($('loginMsg'),'ورود انجام شد اما دریافت مشخصات کاربر ممکن نشد.');return false}profile=r.data;return true}
+function showApp(){ $('loginView').classList.add('hidden');$('appView').classList.remove('hidden');$('headerUser').classList.remove('hidden');$('who').textContent=profile.full_name||user.email;$('title').textContent=profile.title||'';$('role').textContent=admin()?'مدیر':'کاربر';$('usersBtn').classList.toggle('hidden',!admin());$('addTask').classList.toggle('hidden',!admin());loadTasks() }
+async function loadTasks(){let {data,error}=await client.from('tasks').select('*').order('id');if(error){message($('appMsg'),'دریافت فعالیت‌ها ناموفق بود: '+error.message);return}tasks=data||[];let fr=await client.from('profiles').select('id,full_name,title,role');profiles=fr.data||[];let tf=await client.from('task_files').select('*');filesByTask={};(tf.data||[]).forEach(f=>(filesByTask[f.task_id]??=[]).push(f));render()}
+function addText(parent,text,tag='span',cls=''){let e=document.createElement(tag);e.textContent=text??'';if(cls)e.className=cls;parent.append(e);return e}
+function render(){let body=$('rows');body.replaceChildren();$('rowCount').textContent=`${tasks.length} ردیف`;tasks.forEach((t,i)=>{let tr=document.createElement('tr');addText(tr,String(i+1),'td','index');let descCell=addText(tr,t.description||'—','td',admin()?'':'locked');if(admin()){let eb=document.createElement('button');eb.className='btn secondary small';eb.textContent='ویرایش';eb.onclick=()=>openTask(t);let db=document.createElement('button');db.className='btn danger small';db.textContent='حذف';db.style.margin='4px';db.onclick=()=>deleteTask(t);descCell.append(document.createElement('br'),eb,db)}let td=document.createElement('td');td.className=admin()?'':'locked';let p=profiles.find(x=>x.id===t.assignee_id);addText(td,p?.full_name||'—','span');if(p?.title)addText(td,p.title,'small');tr.append(td);[t.registered_on,t.due_on,t.completed_on].forEach((d,k)=>addText(tr,displayDate(d),'td',admin()||(!k&&false)?'':'locked'));let ac=document.createElement('td');ac.className=admin()||t.assignee_id===user.id?'':'locked';addText(ac,t.action_text||'—','div');let bar=document.createElement('div');bar.className='progress';let fill=document.createElement('i');fill.style.width=Math.max(0,Math.min(100,+t.progress||0))+'%';bar.append(fill);ac.append(bar);addText(ac,`${+t.progress||0}%`,'small','hint');tr.append(ac);let det=document.createElement('td');det.className=admin()?'':'locked';addText(det,t.details||'','div');let fl=document.createElement('div');fl.className='files';(filesByTask[t.id]||[]).forEach(f=>{let a=document.createElement('a');a.className='filelink';a.target='_blank';a.rel='noopener';a.textContent=f.file_name||f.name||'فایل';a.href=f.file_url||client.storage.from('task-files').getPublicUrl(f.file_path).data.publicUrl;fl.append(a);if(admin()){let rm=document.createElement('button');rm.type='button';rm.className='btn danger small';rm.textContent='×';rm.title='حذف فایل';rm.onclick=async()=>{if(!confirm('این فایل حذف شود؟'))return;let path=f.file_path;if(path){let sr=await client.storage.from('task-files').remove([path]);if(sr.error){message($('appMsg'),'حذف فایل از مخزن ناموفق بود: '+sr.error.message);return}}let fr=await client.from('task_files').delete().eq('id',f.id);if(fr.error){message($('appMsg'),'حذف مشخصات فایل ناموفق بود: '+fr.error.message);return}await loadTasks()};fl.append(rm)}});det.append(fl);if(admin()){let up=document.createElement('button');up.className='btn secondary small';up.textContent='افزودن فایل';up.onclick=()=>uploadFiles(t.id);det.append(up)}tr.append(det);if(!admin())tr.title=t.assignee_id===user.id?'برای ویرایش ردیف کلیک کنید':'';if(!admin()&&t.assignee_id===user.id){tr.style.cursor='pointer';tr.onclick=()=>openTask(t)}body.append(tr)})}
+function openTask(t=null){editing=t;clearMessage($('taskMsg'));$('taskHeading').textContent=t?'ویرایش فعالیت': 'ثبت فعالیت';$('description').value=t?.description||'';$('details').value=t?.details||'';$('actionText').value=t?.action_text||'';$('progress').value=t?.progress??0;$('progressLabel').textContent=$('progress').value;let sel=$('assignee');sel.replaceChildren();let empty=document.createElement('option');empty.value='';empty.textContent='انتخاب کاربر';sel.append(empty);profiles.filter(x=>x.role!=='admin').forEach(p=>{let o=document.createElement('option');o.value=p.id;o.textContent=`${p.full_name||''}${p.title?' — '+p.title:''}`;sel.append(o)});sel.value=t?.assignee_id||'';let canAdmin=admin(), own=t?.assignee_id===user.id;document.querySelectorAll('.adminField').forEach(e=>e.classList.toggle('hidden',!canAdmin));let locked=!canAdmin&&!own;['actionText','progress'].forEach(id=>$(id).disabled=locked);setDate('registeredDate',t?.registered_on||null,!canAdmin);setDate('dueDate',t?.due_on||null,!canAdmin);setDate('completedDate',t?.completed_on||null,locked);modal('taskModal')}
+$('progress').oninput=()=> $('progressLabel').textContent=$('progress').value;
+$('taskForm').onsubmit=async e=>{e.preventDefault();let own=editing?.assignee_id===user.id;if(!admin()&&!own)return;let payload;if(admin())payload={description:$('description').value.trim(),assignee_id:$('assignee').value||null,registered_on:dateVal('registeredDate'),due_on:dateVal('dueDate'),completed_on:dateVal('completedDate'),action_text:$('actionText').value.trim(),progress:+$('progress').value,details:$('details').value.trim()};else payload={action_text:$('actionText').value.trim(),progress:+$('progress').value,completed_on:dateVal('completedDate')};let q=editing?client.from('tasks').update(payload).eq('id',editing.id):client.from('tasks').insert(payload);let {error}=await q;if(error){message($('taskMsg'),'ذخیره انجام نشد: '+error.message);return}modal('taskModal',false);await loadTasks()};
+$('addTask').onclick=()=>openTask();$('closeTask').onclick=()=>modal('taskModal',false);
+async function deleteTask(t){if(!confirm('این ردیف حذف شود؟'))return;let {error}=await client.from('tasks').delete().eq('id',t.id);if(error)message($('appMsg'),'حذف انجام نشد: '+error.message);else loadTasks()}
+async function uploadFiles(taskId){let input=document.createElement('input');input.type='file';input.multiple=true;input.onchange=async()=>{for(const file of input.files){let path=`${taskId}/${Date.now()}_${file.name.replace(/[^\w.\-]/g,'_')}`;let up=await client.storage.from('task-files').upload(path,file);if(up.error){message($('appMsg'),'بارگذاری فایل ناموفق بود: '+up.error.message);continue}let url=client.storage.from('task-files').getPublicUrl(path).data.publicUrl;let ins=await client.from('task_files').insert({task_id:taskId,file_name:file.name,file_path:path,file_url:url});if(ins.error)message($('appMsg'),'فایل بارگذاری شد، اما ثبت مشخصات آن ناموفق بود: '+ins.error.message)}loadTasks()};input.click()}
+$('usersBtn').onclick=async()=>{await loadUsers();modal('usersModal')};$('closeUsers').onclick=()=>modal('usersModal',false);
+async function loadUsers(){let {data,error}=await client.from('profiles').select('*').order('full_name');if(error){message($('usersMsg'),'دریافت کاربران ناموفق بود: '+error.message);return}profiles=data||[];let table=document.createElement('table');table.className='userslist';let h=document.createElement('tr');['نام','عنوان','نقش',''].forEach(x=>addText(h,x,'th'));table.append(h);profiles.forEach(p=>{let r=document.createElement('tr');addText(r,p.full_name||'—','td');addText(r,p.title||'—','td');addText(r,p.role||'user','td');let c=document.createElement('td');if(p.role!=='admin'){let b=document.createElement('button');b.className='btn danger small';b.textContent='حذف';b.onclick=()=>removeUser(p);c.append(b)}r.append(c);table.append(r)});$('usersTable').replaceChildren(table)}
+async function removeUser(p){if(!confirm(`کاربر «${p.full_name||''}» حذف شود؟`))return;let {error}=await client.from('profiles').delete().eq('id',p.id).neq('role','admin');if(error){alert('حذف کاربر انجام نشد. ممکن است این کاربر فعالیت منتسب داشته باشد؛ ابتدا ردیف‌های مربوط را بررسی کنید.\n'+error.message);return}await loadUsers()}
+$('newUserForm').onsubmit=async e=>{e.preventDefault();let username=$('newUsername').value.trim().toLowerCase(),email=`${username}@esfandiyar.internal`;let {data,error}=await client.auth.signUp({email,password:$('newPassword').value,options:{data:{full_name:$('newFullName').value.trim(),title:$('newTitle').value.trim(),username}}});if(error){message($('usersMsg'),'ساخت کاربر ناموفق بود: '+error.message);return}message($('usersMsg'),data.user?'کاربر ثبت شد. در صورت فعال بودن تأیید ایمیل، تنظیمات Auth را بررسی کنید.':'کاربر ثبت شد.','ok');e.target.reset();await loadUsers()};
+$('loginForm').onsubmit=async e=>{e.preventDefault();clearMessage($('loginMsg'));let username=$('username').value.trim().toLowerCase(),email=`${username}@esfandiyar.internal`;let {error}=await client.auth.signInWithPassword({email,password:$('password').value});if(error){message($('loginMsg'),'ورود ناموفق بود؛ نام کاربری و رمز عبور را بررسی کنید.');return}if(await loadProfile())showApp();else await client.auth.signOut()};
+$('logout').onclick=async()=>{await client.auth.signOut();location.reload()};
+$('settings').onclick=()=>{$('anonKey').value=localStorage.getItem(KEY_NAME)||'';modal('keyModal')};$('cancelKey').onclick=()=>{if(localStorage.getItem(KEY_NAME))modal('keyModal',false)};$('saveKey').onclick=()=>{let k=$('anonKey').value.trim();if(!k){message($('loginMsg'),'کلید عمومی را وارد کنید.');return}localStorage.setItem(KEY_NAME,k);location.reload()};
+(async()=>{let key=localStorage.getItem(KEY_NAME);if(!key){modal('keyModal');return}if(!initClient(key)){modal('keyModal');return}let {data:{session}}=await client.auth.getSession();if(session&&await loadProfile())showApp()})();
+</script></body></html>
