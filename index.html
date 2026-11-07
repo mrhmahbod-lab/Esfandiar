@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>پروژه احداث ساختمان اسفندیار - شرکت مهراصل</title>
-    <!-- لود پایدار کتابخانه Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
     <style>
         :root {
@@ -59,6 +58,8 @@
         .form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; outline: none; background: #fff; }
         .form-control:focus { border-color: var(--primary); }
 
+        textarea.form-control { resize: vertical; min-height: 60px; }
+
         .shamsi-group { display: flex; gap: 4px; }
         .shamsi-group select { flex: 1; padding: 6px 2px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.82rem; background: #fff; }
 
@@ -70,6 +71,7 @@
         .btn-primary:hover { background: var(--primary-hover); }
         .btn-danger { background: var(--danger); color: white; }
         .btn-success { background: var(--success); color: white; }
+        .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
 
         .table-container {
             background: var(--card); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
@@ -77,11 +79,11 @@
         }
         table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: right; }
         th { background: #f1f5f9; color: #334155; padding: 12px 14px; font-weight: 700; border-bottom: 2px solid var(--border); white-space: nowrap; }
-        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
         tr:hover td { background-color: #f8fafc; }
 
         .cell-readonly { background-color: var(--muted-bg) !important; color: #334155; }
-        .progress-box { display: flex; align-items: center; gap: 8px; }
+        .progress-box { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .progress-slider { flex-grow: 1; }
         .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
 
@@ -115,12 +117,12 @@
                 <tr>
                     <th style="width: 45px; text-align: center;">ردیف</th>
                     <th>شرح فعالیت</th>
-                    <th style="width: 140px;">پیگیری‌کننده</th>
+                    <th style="width: 130px;">پیگیری‌کننده</th>
                     <th style="width: 110px;">تاریخ ثبت</th>
                     <th style="width: 110px;">مهلت انجام</th>
-                    <th style="width: 190px;">تاریخ انجام</th>
+                    <th style="width: 180px;">تاریخ انجام</th>
                     <th style="width: 250px;">اقدامات و درصد</th>
-                    <th>توضیحات و فایل‌ها</th>
+                    <th style="width: 260px;">توضیحات و فایل‌ها</th>
                     <th id="actions-header" style="width: 70px; text-align: center; display: none;">عملیات</th>
                 </tr>
             </thead>
@@ -210,7 +212,7 @@
 
     <script>
         const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE";
+        const SUPABASE_KEY = "اینجا_کلید_طولانی_که_با_eyJ_شروع_میشود_را_پیست_کنید";
         const db = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
         const USERS = {
@@ -243,6 +245,7 @@
             const yEl = document.getElementById(`${prefix}-y`);
             const mEl = document.getElementById(`${prefix}-m`);
             const dEl = document.getElementById(`${prefix}-d`);
+            if(!yEl) return;
             yEl.innerHTML = [1403, 1404, 1405, 1406, 1407].map(y => `<option value="${y}">${y}</option>`).join('');
             mEl.innerHTML = MONTHS.map((m, i) => `<option value="${String(i+1).padStart(2,'0')}">${m}</option>`).join('');
             dEl.innerHTML = Array.from({length:31}, (_, i) => `<option value="${String(i+1).padStart(2,'0')}">${i+1}</option>`).join('');
@@ -295,7 +298,7 @@
 
         async function fetchTasks() {
             if (!db) {
-                document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در لود کتابخانه ارتباطی پایگاه داده</td></tr>';
+                document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در لود کتابخانه پایگاه داده</td></tr>';
                 return;
             }
             const { data, error } = await db.from('tasks').select('*').order('id', { ascending: true });
@@ -319,9 +322,10 @@
                 const canEdit = isAdmin || (t.assignee === currentUser.key);
                 const readOnlyClass = !isAdmin ? 'cell-readonly' : '';
                 const assigneeName = USERS[t.assignee]?.title || t.assignee;
+                const compDateParts = (t.completion_date || '1405/01/01').split('/');
 
                 return `
-                    <tr>
+                    <tr id="row-${t.id}">
                         <td style="text-align:center;font-weight:bold;">${idx + 1}</td>
                         <td class="${readOnlyClass}">${t.description || '-'}</td>
                         <td class="${readOnlyClass}"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
@@ -330,19 +334,19 @@
                         <td class="${!canEdit ? 'cell-readonly' : ''}">
                             ${canEdit ? `
                                 <div class="shamsi-group">
-                                    <select onchange="saveDate(${t.id}, 'y', this.value)">
-                                        ${[1404, 1405, 1406, 1407].map(y => `<option value="${y}" ${(t.completion_date||'').startsWith(String(y))?'selected':''}>${y}</option>`).join('')}
+                                    <select id="comp-y-${t.id}">
+                                        ${[1404, 1405, 1406, 1407].map(y => `<option value="${y}" ${compDateParts[0]==y?'selected':''}>${y}</option>`).join('')}
                                     </select>
-                                    <select onchange="saveDate(${t.id}, 'm', this.value)">
+                                    <select id="comp-m-${t.id}">
                                         ${MONTHS.map((m, i) => {
                                             const v = String(i+1).padStart(2,'0');
-                                            return `<option value="${v}" ${(t.completion_date||'').includes(`/${v}/`)?'selected':''}>${m}</option>`;
+                                            return `<option value="${v}" ${compDateParts[1]==v?'selected':''}>${m}</option>`;
                                         }).join('')}
                                     </select>
-                                    <select onchange="saveDate(${t.id}, 'd', this.value)">
+                                    <select id="comp-d-${t.id}">
                                         ${Array.from({length:31}, (_, i) => {
                                             const v = String(i+1).padStart(2,'0');
-                                            return `<option value="${v}" ${(t.completion_date||'').endsWith(`/${v}`)?'selected':''}>${i+1}</option>`;
+                                            return `<option value="${v}" ${compDateParts[2]==v?'selected':''}>${i+1}</option>`;
                                         }).join('')}
                                     </select>
                                 </div>
@@ -350,24 +354,37 @@
                         </td>
                         <td class="${!canEdit ? 'cell-readonly' : ''}">
                             <div class="progress-box">
-                                <input type="range" class="progress-slider" min="0" max="100" value="${t.progress || 0}"
-                                    onchange="updateField(${t.id}, 'progress', parseInt(this.value))"
-                                    oninput="this.nextElementSibling.innerText = this.value + '%'"
+                                <input type="range" class="progress-slider" id="prog-range-${t.id}" min="0" max="100" value="${t.progress || 0}"
+                                    oninput="document.getElementById('prog-val-${t.id}').innerText = this.value + '%'"
                                     ${!canEdit ? 'disabled' : ''}>
-                                <span style="font-size:0.8rem;font-weight:bold;min-width:32px;">${t.progress || 0}%</span>
+                                <span id="prog-val-${t.id}" style="font-size:0.8rem;font-weight:bold;min-width:32px;">${t.progress || 0}%</span>
                             </div>
-                            <input type="text" class="form-control" style="font-size:0.8rem;margin-top:6px;padding:4px;"
-                                value="${t.actions || ''}" placeholder="شرح اقدام..."
-                                onchange="updateField(${t.id}, 'actions', this.value)"
-                                ${!canEdit ? 'disabled' : ''}>
+                            <textarea class="form-control" id="actions-text-${t.id}" placeholder="شرح اقدام..." ${!canEdit ? 'disabled' : ''}>${t.actions || ''}</textarea>
                         </td>
-                        <td class="${readOnlyClass}">
-                            <div style="font-size:0.8rem;margin-bottom:4px;">${t.details || '-'}</div>
-                            ${(t.files || []).map(f => `<a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>`).join('')}
+                        <td class="${!canEdit ? 'cell-readonly' : ''}">
+                            <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات..." ${!canEdit ? 'disabled' : ''}>${t.details || ''}</textarea>
+                            <div style="margin-top:6px;">
+                                ${(t.files || []).map((f, fIdx) => `
+                                    <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
+                                        <a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>
+                                        ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile(${t.id}, ${fIdx})">×</button>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${canEdit ? `
+                                <div style="margin-top:6px; display:flex; gap:4px; align-items:center;">
+                                    <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple>
+                                </div>
+                            ` : ''}
+                            ${canEdit ? `
+                                <div style="margin-top:8px; text-align: left;">
+                                    <button class="btn btn-success btn-sm" onclick="saveTaskRow(${t.id})">💾 ذخیره تغییرات</button>
+                                </div>
+                            ` : ''}
                         </td>
                         ${isAdmin ? `
                             <td style="text-align:center;">
-                                <button class="btn btn-danger" style="padding:4px 8px;font-size:0.75rem;" onclick="removeTask(${t.id})">حذف</button>
+                                <button class="btn btn-danger btn-sm" onclick="removeTask(${t.id})">حذف سطر</button>
                             </td>
                         ` : ''}
                     </tr>
@@ -375,22 +392,59 @@
             }).join('');
         }
 
-        async function updateField(id, col, val) {
-            const patch = {}; patch[col] = val;
-            const { error } = await db.from('tasks').update(patch).eq('id', id);
-            if (error) alert('خطا در ذخیره تغییرات: ' + error.message);
+        async function saveTaskRow(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+
+            const y = document.getElementById(`comp-y-${id}`).value;
+            const m = document.getElementById(`comp-m-${id}`).value;
+            const d = document.getElementById(`comp-d-${id}`).value;
+            const completionDate = `${y}/${m}/${d}`;
+
+            const progress = parseInt(document.getElementById(`prog-range-${id}`).value) || 0;
+            const actions = document.getElementById(`actions-text-${id}`).value;
+            const details = document.getElementById(`details-text-${id}`).value;
+
+            let updatedFiles = [...(t.files || [])];
+            const fileInput = document.getElementById(`new-file-${id}`);
+            if (fileInput && fileInput.files.length > 0) {
+                for (let file of fileInput.files) {
+                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                    const filePath = `${Date.now()}_${cleanName}`;
+                    const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
+                    if (!upErr) {
+                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                        updatedFiles.push({ name: file.name, url: data.publicUrl });
+                    }
+                }
+            }
+
+            const { error } = await db.from('tasks').update({
+                completion_date: completionDate,
+                progress: progress,
+                actions: actions,
+                details: details,
+                files: updatedFiles
+            }).eq('id', id);
+
+            if (error) {
+                alert('خطا در ذخیره تغییرات: ' + error.message);
+            } else {
+                alert('تغییرات با موفقیت ذخیره شد.');
+                fetchTasks();
+            }
         }
 
-        async function saveDate(id, part, val) {
-            const t = tasks.find(x => x.id === id);
-            let p = (t.completion_date || '1405/01/01').split('/');
-            if (p.length !== 3) p = ['1405', '01', '01'];
-            if (part === 'y') p[0] = val;
-            if (part === 'm') p[1] = val;
-            if (part === 'd') p[2] = val;
-            const str = p.join('/');
-            t.completion_date = str;
-            await updateField(id, 'completion_date', str);
+        async function removeFile(taskId, fileIdx) {
+            if (!confirm('آیا از حذف این فایل اطمینان دارید؟')) return;
+            const t = tasks.find(x => x.id === taskId);
+            if (!t) return;
+            let files = [...(t.files || [])];
+            files.splice(fileIdx, 1);
+
+            const { error } = await db.from('tasks').update({ files: files }).eq('id', taskId);
+            if (!error) fetchTasks();
+            else alert('خطا در حذف فایل: ' + error.message);
         }
 
         function openNewTaskModal() {
