@@ -108,7 +108,7 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 45px; text-align: center;">ردیف</th>
+                    <th style="width: 65px; text-align: center;">ردیف</th>
                     <th>شرح فعالیت</th>
                     <th style="width: 130px;">پیگیری‌کننده</th>
                     <th style="width: 110px;">تاریخ ثبت</th>
@@ -205,8 +205,8 @@
     </div>
 
     <script>
-        const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE"; // کلید واقعی خود را اینجا قرار دهید
+        const SUPABASE_URL = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE";
+        const SUPABASE_KEY = "GAPGPTMASKTOKENc5vbk4o66muX0X";
 
         let db = null;
         try {
@@ -301,7 +301,7 @@
                 document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در ارتباط با پایگاه داده</td></tr>';
                 return;
             }
-            const { data, error } = await db.from('tasks').select('*').order('id', { ascending: true });
+            const { data, error } = await db.from('tasks').select('*').order('order_index', { ascending: true });
             if (error) {
                 document.getElementById('tasks-body').innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">خطای پایگاه‌داده: ${error.message}</td></tr>`;
                 return;
@@ -320,13 +320,28 @@
             const isAdmin = currentUser.role === 'admin';
             tbody.innerHTML = tasks.map((t, idx) => {
                 const canEdit = isAdmin || (t.assignee === currentUser.key);
-                const readOnlyClass = !canEdit ? 'cell-readonly' : '';
                 const assigneeName = USERS[t.assignee]?.title || t.assignee;
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
 
                 return `
-                    <tr id="row-${t.id}">
-                        <td style="text-align:center;font-weight:bold;">${idx + 1}</td>
+                    <tr id="row-${t.id}" 
+                        draggable="${isAdmin ? 'true' : 'false'}" 
+                        ondragstart="onDragStart(event, '${t.id}')" 
+                        ondragover="onDragOver(event)" 
+                        ondrop="onDrop(event, '${t.id}')"
+                        style="cursor: ${isAdmin ? 'grab' : 'default'};">
+                        
+                        <td style="text-align:center;font-weight:bold;white-space:nowrap;">
+                            <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
+                                <span>${idx + 1}</span>
+                                ${isAdmin ? `
+                                    <div style="display:inline-flex; flex-direction:column; gap:1px;">
+                                        <button type="button" onclick="moveTask('${t.id}', 'up')" title="انتقال به بالا" style="background:none; border:none; cursor:pointer; padding:0; line-height:1; font-size:11px; color:#475569;">▲</button>
+                                        <button type="button" onclick="moveTask('${t.id}', 'down')" title="انتقال به پایین" style="background:none; border:none; cursor:pointer; padding:0; line-height:1; font-size:11px; color:#475569;">▼</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </td>
                         <td class="cell-readonly">${t.description || '-'}</td>
                         <td class="cell-readonly"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
@@ -362,21 +377,21 @@
                             <textarea class="form-control" id="actions-text-${t.id}" placeholder="شرح اقدام..." ${!canEdit ? 'disabled' : ''}>${t.actions || ''}</textarea>
                         </td>
                         <td>
-                      <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
+                            <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
                                         <a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>
-                                 ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
+                                        ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
                                     </div>
                                 `).join('') : ''}
                             </div>
-                                <div style="margin-top:6px;">
-                                    <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple>
+                            <div style="margin-top:6px;">
+                                <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple>
                             </div>
-                                <div style="margin-top:8px; text-align: left;">
-                                    <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
-                                </div>
+                            <div style="margin-top:8px; text-align: left;">
+                                <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
+                            </div>
                         </td>
                         ${isAdmin ? `
                             <td style="text-align:center;">
@@ -387,77 +402,129 @@
                 `;
             }).join('');
         }
-async function saveTaskRow(id) {
-    const t = tasks.find(x => x.id === id);
-    if (!t) return;
-    try {
-        const isAdmin = currentUser.role === 'admin';
-        const canEdit = isAdmin || (t.assignee === currentUser.key);
 
-        // اگر کاربر دسترسی ویرایش تاریخ، درصد و اقدام را دارد از فیلدها بخواند، وگرنه مقدار قبلی را حفظ کند
-        let completion_date = t.completion_date || '';
-        let progress = t.progress || 0;
-        let actions = t.actions || '';
+        async function saveTaskRow(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            try {
+                const isAdmin = currentUser.role === 'admin';
+                const canEdit = isAdmin || (t.assignee === currentUser.key);
 
-        if (canEdit) {
-            const compYEl = document.getElementById(`comp-y-${id}`);
-            const compMEl = document.getElementById(`comp-m-${id}`);
-            const compDEl = document.getElementById(`comp-d-${id}`);
-            if (compYEl && compMEl && compDEl) {
-                completion_date = `${compYEl.value}/${compMEl.value.padStart(2, '0')}/${compDEl.value.padStart(2, '0')}`;
+                let completion_date = t.completion_date || '';
+                let progress = t.progress || 0;
+                let actions = t.actions || '';
+
+                if (canEdit) {
+                    const compYEl = document.getElementById(`comp-y-${id}`);
+                    const compMEl = document.getElementById(`comp-m-${id}`);
+                    const compDEl = document.getElementById(`comp-d-${id}`);
+                    if (compYEl && compMEl && compDEl) {
+                        completion_date = `${compYEl.value}/${compMEl.value.padStart(2, '0')}/${compDEl.value.padStart(2, '0')}`;
+                    }
+
+                    const progEl = document.getElementById(`prog-range-${id}`);
+                    if (progEl) progress = Number(progEl.value);
+
+                    const actEl = document.getElementById(`actions-text-${id}`);
+                    if (actEl) actions = actEl.value;
+                }
+
+                const detailsEl = document.getElementById(`details-text-${id}`);
+                const details = detailsEl ? detailsEl.value : (t.details || '');
+
+                const fileInput = document.getElementById(`new-file-${id}`);
+                const updatedFiles = [...(t.files || [])];
+                if (fileInput && fileInput.files.length > 0) {
+                    for (let file of fileInput.files) {
+                        const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+                        const filePath = `${Date.now()}_${cleanName}`;
+                        const { error: uploadError } = await db.storage.from('task-files').upload(filePath, file);
+                        if (uploadError) throw new Error('خطا در آپلود فایل: ' + uploadError.message);
+                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                        updatedFiles.push({ name: file.name, url: data.publicUrl });
+                    }
+                }
+
+                const { error } = await db.from('tasks').update({
+                    completion_date, progress, actions, details, files: updatedFiles
+                }).eq('id', id);
+
+                if (error) throw error;
+                alert('تغییرات با موفقیت ذخیره شد.');
+                await fetchTasks();
+            } catch (err) {
+                alert('خطا در ذخیره تغییرات: ' + (err.message || err));
+                console.error(err);
             }
-
-            const progEl = document.getElementById(`prog-range-${id}`);
-            if (progEl) progress = Number(progEl.value);
-
-            const actEl = document.getElementById(`actions-text-${id}`);
-            if (actEl) actions = actEl.value;
         }
 
-        // توضیحات و فایل‌ها برای همه کاربران قابل تغییر است
-        const detailsEl = document.getElementById(`details-text-${id}`);
-        const details = detailsEl ? detailsEl.value : (t.details || '');
+        // ==================== توابع جابجایی ردیف‌ها ====================
 
-        const fileInput = document.getElementById(`new-file-${id}`);
-        const updatedFiles = [...(t.files || [])];
-        if (fileInput && fileInput.files.length > 0) {
-            for (let file of fileInput.files) {
-                const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-                const filePath = `${Date.now()}_${cleanName}`;
-                const { error: uploadError } = await db.storage.from('task-files').upload(filePath, file);
-                if (uploadError) throw new Error('خطا در آپلود فایل: ' + uploadError.message);
-                const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                updatedFiles.push({ name: file.name, url: data.publicUrl });
+        async function moveTask(taskId, direction) {
+            const idx = tasks.findIndex(t => t.id === taskId);
+            if (idx === -1) return;
+            
+            const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+            if (targetIdx < 0 || targetIdx >= tasks.length) return;
+            
+            const temp = tasks[idx];
+            tasks[idx] = tasks[targetIdx];
+            tasks[targetIdx] = temp;
+            
+            renderTable();
+            await saveNewOrderToDB();
+        }
+
+        let draggedTaskId = null;
+
+        function onDragStart(event, taskId) {
+            draggedTaskId = taskId;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function onDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+        }
+
+        async function onDrop(event, targetTaskId) {
+            event.preventDefault();
+            if (!draggedTaskId || draggedTaskId === targetTaskId) return;
+
+            const oldIdx = tasks.findIndex(t => t.id === draggedTaskId);
+            const newIdx = tasks.findIndex(t => t.id === targetTaskId);
+            
+            if (oldIdx === -1 || newIdx === -1) return;
+
+            const [movedItem] = tasks.splice(oldIdx, 1);
+            tasks.splice(newIdx, 0, movedItem);
+
+            draggedTaskId = null;
+            renderTable();
+            await saveNewOrderToDB();
+        }
+
+        async function saveNewOrderToDB() {
+            for (let i = 0; i < tasks.length; i++) {
+                tasks[i].order_index = i + 1;
+                await db.from('tasks').update({ order_index: i + 1 }).eq('id', tasks[i].id);
             }
         }
 
-        const { error } = await db.from('tasks').update({
-            completion_date, progress, actions, details, files: updatedFiles
-        }).eq('id', id);
-
-        if (error) throw error;
-        alert('تغییرات با موفقیت ذخیره شد.');
-        await fetchTasks();
-    } catch (err) {
-        alert('خطا در ذخیره تغییرات: ' + (err.message || err));
-        console.error(err);
-    }
-}
-  async function removeFile(taskId, fileIdx) {
-    if (!confirm('این فایل حذف شود؟')) return;
-    try {
-        const t = tasks.find(x => x.id === taskId);
-        if (!t) return;
-        const files = [...(t.files || [])];
-        files.splice(fileIdx, 1);
-        const { error } = await db.from('tasks').update({ files }).eq('id', taskId);
-        if (error) throw error;
-        await fetchTasks();
-    } catch (err) {
-        alert('خطا در حذف فایل: ' + (err.message || err));
-    }
-}
-
+        async function removeFile(taskId, fileIdx) {
+            if (!confirm('این فایل حذف شود؟')) return;
+            try {
+                const t = tasks.find(x => x.id === taskId);
+                if (!t) return;
+                const files = [...(t.files || [])];
+                files.splice(fileIdx, 1);
+                const { error } = await db.from('tasks').update({ files }).eq('id', taskId);
+                if (error) throw error;
+                await fetchTasks();
+            } catch (err) {
+                alert('خطا در حذف فایل: ' + (err.message || err));
+            }
+        }
 
         function openNewTaskModal() {
             const now = new Date();
@@ -471,68 +538,79 @@ async function saveTaskRow(id) {
             document.getElementById('task-modal').style.display = 'none';
         }
 
- async function handleSaveTask(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btn-save');
-    btn.innerText = 'در حال ذخیره...';
-    btn.disabled = true;
+        async function handleSaveTask(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save');
+            btn.innerText = 'در حال ذخیره...';
+            btn.disabled = true;
 
-    try {
-        const description = document.getElementById('task-desc').value;
-        const assignee = document.getElementById('task-assignee').value;
-        const details = document.getElementById('task-details').value;
+            try {
+                const description = document.getElementById('task-desc').value;
+                const assignee = document.getElementById('task-assignee').value;
+                const details = document.getElementById('task-details').value;
 
-        const regY = document.getElementById('reg-y').value;
-        const regM = document.getElementById('reg-m').value.padStart(2, '0');
-        const regD = document.getElementById('reg-d').value.padStart(2, '0');
-        const created_date = `${regY}/${regM}/${regD}`;
+                const regY = document.getElementById('reg-y').value;
+                const regM = document.getElementById('reg-m').value.padStart(2, '0');
+                const regD = document.getElementById('reg-d').value.padStart(2, '0');
+                const created_date = `${regY}/${regM}/${regD}`;
 
-        const dueY = document.getElementById('due-y').value;
-        const dueM = document.getElementById('due-m').value.padStart(2, '0');
-        const dueD = document.getElementById('due-d').value.padStart(2, '0');
-        const due_date = `${dueY}/${dueM}/${dueD}`;
+                const dueY = document.getElementById('due-y').value;
+                const dueM = document.getElementById('due-m').value.padStart(2, '0');
+                const dueD = document.getElementById('due-d').value.padStart(2, '0');
+                const due_date = `${dueY}/${dueM}/${dueD}`;
 
-        const fileInput = document.getElementById('task-files');
-        const uploaded = [];
-        if (fileInput && fileInput.files.length > 0) {
-            for (let file of fileInput.files) {
-                const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-                const filePath = `${Date.now()}_${cleanName}`;
-                const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
-                if (upErr) throw new Error('خطا در آپلود: ' + upErr.message);
-                const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                uploaded.push({ name: file.name, url: data.publicUrl });
+                const fileInput = document.getElementById('task-files');
+                const uploaded = [];
+                if (fileInput && fileInput.files.length > 0) {
+                    for (let file of fileInput.files) {
+                        const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+                        const filePath = `${Date.now()}_${cleanName}`;
+                        const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
+                        if (upErr) throw new Error('خطا در آپلود: ' + upErr.message);
+                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                        uploaded.push({ name: file.name, url: data.publicUrl });
+                    }
+                }
+
+                const { error } = await db.from('tasks').insert([{
+                    description, assignee, created_date, due_date, details,
+                    files: uploaded, progress: 0, actions: '', completion_date: '',
+                    order_index: tasks.length + 1
+                }]);
+
+                if (error) throw error;
+                closeModal();
+                await fetchTasks();
+            } catch (err) {
+                alert('خطا در ثبت فعالیت: ' + (err.message || err));
+                console.error(err);
+            } finally {
+                btn.innerText = 'ذخیره فعالیت';
+                btn.disabled = false;
             }
         }
 
-        const { error } = await db.from('tasks').insert([{
-            description, assignee, created_date, due_date, details,
-            files: uploaded, progress: 0, actions: '', completion_date: ''
-        }]);
+        async function removeTask(id) {
+            if (!confirm('این فعالیت به طور کامل حذف شود؟')) return;
+            try {
+                const { error } = await db.from('tasks').delete().eq('id', id);
+                if (error) throw error;
+                await fetchTasks();
+            } catch (err) {
+                alert('خطا در حذف فعالیت: ' + (err.message || err));
+            }
+        }
 
-        if (error) throw error;
-        closeModal();
-        await fetchTasks();
-    } catch (err) {
-        alert('خطا در ثبت فعالیت: ' + (err.message || err));
-        console.error(err);
-    } finally {
-        btn.innerText = 'ذخیره فعالیت';
-        btn.disabled = false;
-    }
-}
-
-    async function removeTask(id) {
-    if (!confirm('این فعالیت به طور کامل حذف شود؟')) return;
-    try {
-        const { error } = await db.from('tasks').delete().eq('id', id);
-        if (error) throw error;
-        await fetchTasks();
-    } catch (err) {
-        alert('خطا در حذف فعالیت: ' + (err.message || err));
-    }
-}
-
+        // بررسی وضعیت ورود قبلی کاربر
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('esfandiar_user');
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                document.getElementById('login-modal').style.display = 'none';
+                setupInterface();
+                fetchTasks();
+            }
+        });
     </script>
 </body>
 </html>
