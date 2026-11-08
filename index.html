@@ -392,72 +392,59 @@
             }).join('');
         }
 
-        async function saveTaskRow(id) {
-            const t = tasks.find(x => x.id === id);
-            if (!t) return;
+async function saveTaskRow(id) {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    try {
+        const compY = document.getElementById(`comp-y-${id}`).value;
+        const compM = document.getElementById(`comp-m-${id}`).value.padStart(2, '0');
+        const compD = document.getElementById(`comp-d-${id}`).value.padStart(2, '0');
+        const completion_date = `${compY}/${compM}/${compD}`;
+        const progress = Number(document.getElementById(`prog-range-${id}`).value);
+        const actions = document.getElementById(`actions-text-${id}`).value;
+        const details = document.getElementById(`details-text-${id}`).value;
 
-            let completionDate = t.completion_date || '1405/01/01';
-            const yEl = document.getElementById(`comp-y-${id}`);
-            const mEl = document.getElementById(`comp-m-${id}`);
-            const dEl = document.getElementById(`comp-d-${id}`);
-            if (yEl && mEl && dEl) {
-                completionDate = `${yEl.value}/${mEl.value}/${dEl.value}`;
-            }
-
-            const progressInput = document.getElementById(`prog-range-${id}`);
-            const progress = progressInput ? parseInt(progressInput.value) || 0 : (t.progress || 0);
-            
-            const actionsInput = document.getElementById(`actions-text-${id}`);
-            const actions = actionsInput ? actionsInput.value : (t.actions || '');
-
-            const detailsInput = document.getElementById(`details-text-${id}`);
-            const details = detailsInput ? detailsInput.value : (t.details || '');
-
-            let updatedFiles = [...(t.files || [])];
-            const fileInput = document.getElementById(`new-file-${id}`);
-            if (fileInput && fileInput.files.length > 0) {
-                for (let file of fileInput.files) {
-                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                    const filePath = `${Date.now()}_${cleanName}`;
-                    const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
-                    if (!upErr) {
-                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                        if (data && data.publicUrl) {
-                            updatedFiles.push({ name: file.name, url: data.publicUrl });
-                        }
-                    } else {
-                        console.error("خطا در آپلود فایل:", upErr.message);
-                    }
-                }
-            }
-
-            const { error } = await db.from('tasks').update({
-                completion_date: completionDate,
-                progress: progress,
-                actions: actions,
-                details: details,
-                files: updatedFiles
-            }).eq('id', id);
-
-            if (error) {
-                alert('خطا در ذخیره تغییرات: ' + error.message);
-            } else {
-                alert('تغییرات با موفقیت ذخیره شد.');
-                fetchTasks();
+        const fileInput = document.getElementById(`new-file-${id}`);
+        const updatedFiles = [...(t.files || [])];
+        if (fileInput && fileInput.files.length > 0) {
+            for (let file of fileInput.files) {
+                const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+                const filePath = `${Date.now()}_${cleanName}`;
+                const { error: uploadError } = await db.storage.from('task-files').upload(filePath, file);
+                if (uploadError) throw new Error('خطا در آپلود فایل: ' + uploadError.message);
+                const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                updatedFiles.push({ name: file.name, url: data.publicUrl });
             }
         }
 
-        async function removeFile(taskId, fileIdx) {
-            if (!confirm('آیا از حذف این فایل اطمینان دارید؟')) return;
-            const t = tasks.find(x => x.id === taskId);
-            if (!t) return;
-            let files = [...(t.files || [])];
-            files.splice(fileIdx, 1);
+        const { error } = await db.from('tasks').update({
+            completion_date, progress, actions, details, files: updatedFiles
+        }).eq('id', id);
 
-            const { error } = await db.from('tasks').update({ files: files }).eq('id', taskId);
-            if (!error) fetchTasks();
-            else alert('خطا در حذف فایل: ' + error.message);
-        }
+        if (error) throw error;
+        alert('تغییرات با موفقیت ذخیره شد.');
+        await fetchTasks();
+    } catch (err) {
+        alert('خطا در ذخیره تغییرات: ' + (err.message || err));
+        console.error(err);
+    }
+}
+
+  async function removeFile(taskId, fileIdx) {
+    if (!confirm('این فایل حذف شود؟')) return;
+    try {
+        const t = tasks.find(x => x.id === taskId);
+        if (!t) return;
+        const files = [...(t.files || [])];
+        files.splice(fileIdx, 1);
+        const { error } = await db.from('tasks').update({ files }).eq('id', taskId);
+        if (error) throw error;
+        await fetchTasks();
+    } catch (err) {
+        alert('خطا در حذف فایل: ' + (err.message || err));
+    }
+}
+
 
         function openNewTaskModal() {
             const now = new Date();
@@ -471,79 +458,68 @@
             document.getElementById('task-modal').style.display = 'none';
         }
 
-        async function handleSaveTask(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save');
-            btn.innerText = 'در حال ذخیره...';
-            btn.disabled = true;
+ async function handleSaveTask(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save');
+    btn.innerText = 'در حال ذخیره...';
+    btn.disabled = true;
 
-            const desc = document.getElementById('task-desc').value;
-            const assignee = document.getElementById('task-assignee').value;
-            const details = document.getElementById('task-details').value;
-            const regDate = `${document.getElementById('reg-y').value}/${document.getElementById('reg-m').value}/${document.getElementById('reg-d').value}`;
-            const dueDate = `${document.getElementById('due-y').value}/${document.getElementById('due-m').value}/${document.getElementById('due-d').value}`;
-            const fileInput = document.getElementById('task-files');
+    try {
+        const description = document.getElementById('task-desc').value;
+        const assignee = document.getElementById('task-assignee').value;
+        const details = document.getElementById('task-details').value;
 
-            let uploaded = [];
-            if (fileInput && fileInput.files.length > 0) {
-                for (let file of fileInput.files) {
-                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                    const filePath = `${Date.now()}_${cleanName}`;
-                    const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
-                    if (!upErr) {
-                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                        if (data && data.publicUrl) {
-                            uploaded.push({ name: file.name, url: data.publicUrl });
-                        }
-                    }
-                }
-            }
+        const regY = document.getElementById('reg-y').value;
+        const regM = document.getElementById('reg-m').value.padStart(2, '0');
+        const regD = document.getElementById('reg-d').value.padStart(2, '0');
+        const created_date = `${regY}/${regM}/${regD}`;
 
-            const { error } = await db.from('tasks').insert([{
-                description: desc,
-                assignee: assignee,
-                created_date: regDate,
-                due_date: dueDate,
-                details: details,
-                files: uploaded,
-                progress: 0,
-                actions: '',
-                completion_date: ''
-            }]);
+        const dueY = document.getElementById('due-y').value;
+        const dueM = document.getElementById('due-m').value.padStart(2, '0');
+        const dueD = document.getElementById('due-d').value.padStart(2, '0');
+        const due_date = `${dueY}/${dueM}/${dueD}`;
 
-            btn.innerText = 'ذخیره فعالیت';
-            btn.disabled = false;
-
-            if (error) {
-                alert('خطا در ثبت فعالیت: ' + error.message);
-            } else {
-                closeModal();
-                fetchTasks();
+        const fileInput = document.getElementById('task-files');
+        const uploaded = [];
+        if (fileInput && fileInput.files.length > 0) {
+            for (let file of fileInput.files) {
+                const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+                const filePath = `${Date.now()}_${cleanName}`;
+                const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
+                if (upErr) throw new Error('خطا در آپلود: ' + upErr.message);
+                const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                uploaded.push({ name: file.name, url: data.publicUrl });
             }
         }
 
-        async function removeTask(id) {
-            if (!confirm('آیا از حذف این فعالیت اطمینان دارید؟')) return;
-            const { error } = await db.from('tasks').delete().eq('id', id);
-            if (!error) fetchTasks();
-            else alert('خطا در حذف: ' + error.message);
-        }
+        const { error } = await db.from('tasks').insert([{
+            description, assignee, created_date, due_date, details,
+            files: uploaded, progress: 0, actions: '', completion_date: ''
+        }]);
 
-        window.onload = () => {
-            const saved = localStorage.getItem('esfandiar_user');
-            if (saved) {
-                try {
-                    currentUser = JSON.parse(saved);
-                    document.getElementById('login-modal').style.display = 'none';
-                    setupInterface();
-                    fetchTasks();
-                    return;
-                } catch(e) {
-                    localStorage.removeItem('esfandiar_user');
-                }
-            }
-            document.getElementById('login-modal').style.display = 'flex';
-        };
+        if (error) throw error;
+        closeModal();
+        await fetchTasks();
+    } catch (err) {
+        alert('خطا در ثبت فعالیت: ' + (err.message || err));
+        console.error(err);
+    } finally {
+        btn.innerText = 'ذخیره فعالیت';
+        btn.disabled = false;
+    }
+}
+
+    async function removeTask(id) {
+    if (!confirm('این فعالیت به طور کامل حذف شود؟')) return;
+    try {
+        const { error } = await db.from('tasks').delete().eq('id', id);
+        if (error) throw error;
+        await fetchTasks();
+    } catch (err) {
+        alert('خطا در حذف فعالیت: ' + (err.message || err));
+    }
+}
+
     </script>
 </body>
 </html>
