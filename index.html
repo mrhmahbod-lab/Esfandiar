@@ -367,7 +367,7 @@
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
                                         <a href="${f.url}" target="_blank" class="file-link">📎 ${f.name}</a>
-                                        ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile(${t.id}, ${fIdx})">×</button>` : ''}
+                                        ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
                                     </div>
                                 `).join('') : ''}
                             </div>
@@ -378,13 +378,13 @@
                             ` : ''}
                             ${canEdit ? `
                                 <div style="margin-top:8px; text-align: left;">
-                                    <button class="btn btn-success btn-sm" onclick="saveTaskRow(${t.id})">💾 ذخیره تغییرات</button>
+                                    <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
                                 </div>
                             ` : ''}
                         </td>
                         ${isAdmin ? `
                             <td style="text-align:center;">
-                                <button class="btn btn-danger btn-sm" onclick="removeTask(${t.id})">حذف سطر</button>
+                                <button class="btn btn-danger btn-sm" onclick="removeTask('${t.id}')">حذف سطر</button>
                             </td>
                         ` : ''}
                     </tr>
