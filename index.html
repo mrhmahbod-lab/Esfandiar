@@ -387,18 +387,36 @@
                 `;
             }).join('');
         }
-
 async function saveTaskRow(id) {
     const t = tasks.find(x => x.id === id);
     if (!t) return;
     try {
-        const compY = document.getElementById(`comp-y-${id}`).value;
-        const compM = document.getElementById(`comp-m-${id}`).value.padStart(2, '0');
-        const compD = document.getElementById(`comp-d-${id}`).value.padStart(2, '0');
-        const completion_date = `${compY}/${compM}/${compD}`;
-        const progress = Number(document.getElementById(`prog-range-${id}`).value);
-        const actions = document.getElementById(`actions-text-${id}`).value;
-        const details = document.getElementById(`details-text-${id}`).value;
+        const isAdmin = currentUser.role === 'admin';
+        const canEdit = isAdmin || (t.assignee === currentUser.key);
+
+        // اگر کاربر دسترسی ویرایش تاریخ، درصد و اقدام را دارد از فیلدها بخواند، وگرنه مقدار قبلی را حفظ کند
+        let completion_date = t.completion_date || '';
+        let progress = t.progress || 0;
+        let actions = t.actions || '';
+
+        if (canEdit) {
+            const compYEl = document.getElementById(`comp-y-${id}`);
+            const compMEl = document.getElementById(`comp-m-${id}`);
+            const compDEl = document.getElementById(`comp-d-${id}`);
+            if (compYEl && compMEl && compDEl) {
+                completion_date = `${compYEl.value}/${compMEl.value.padStart(2, '0')}/${compDEl.value.padStart(2, '0')}`;
+            }
+
+            const progEl = document.getElementById(`prog-range-${id}`);
+            if (progEl) progress = Number(progEl.value);
+
+            const actEl = document.getElementById(`actions-text-${id}`);
+            if (actEl) actions = actEl.value;
+        }
+
+        // توضیحات و فایل‌ها برای همه کاربران قابل تغییر است
+        const detailsEl = document.getElementById(`details-text-${id}`);
+        const details = detailsEl ? detailsEl.value : (t.details || '');
 
         const fileInput = document.getElementById(`new-file-${id}`);
         const updatedFiles = [...(t.files || [])];
@@ -425,7 +443,6 @@ async function saveTaskRow(id) {
         console.error(err);
     }
 }
-
   async function removeFile(taskId, fileIdx) {
     if (!confirm('این فایل حذف شود؟')) return;
     try {
