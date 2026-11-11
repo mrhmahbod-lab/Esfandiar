@@ -377,7 +377,7 @@
         async function markTaskSeen(id,event){
             if(event){event.preventDefault();event.stopPropagation()}
             const t=tasks.find(x=>String(x.id)===String(id));if(!t||!currentUser)return;
-            const meta=getTaskMeta(t);if(!meta.updated_at||!meta.updated_by||meta.updated_by===currentUser.key)return;
+            const meta=getTaskMeta(t);if(!meta.updated_at||!meta.updated_by)return;
             if(!db){alert('رسید مشاهده ذخیره نشد: اتصال پایگاه داده برقرار نیست.');return}
             try{
                 const {data,error}=await db.rpc('record_task_receipt',{p_task_id:id,p_user_key:currentUser.key,p_expected_updated_at:meta.updated_at});
@@ -397,11 +397,11 @@
             const klass=unread?'unresolved':meta.updated_at&&((meta.updated_by===currentUser.key&&seenByOther)||isTaskSeen(t))?'resolved':meta.updated_at?'pending':'neutral';
             const badge=line.querySelector('.receipt-badge');if(badge){badge.className='receipt-badge '+klass;badge.textContent=text;}
         }
-        function markFileRead(id,index,event){const d=readStore(FILE_SEEN_KEY);const k=`${id}:${index}`;d[k]=d[k]||{};d[k][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);markTaskSeen(id);if(event)event.stopPropagation()}
+        function markFileRead(id,index,event){const d=readStore(FILE_SEEN_KEY);const k=`${id}:${index}`;d[k]=d[k]||{};d[k][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);markTaskSeen(id,event);if(event)event.stopPropagation()}
         async function updateTask(id,patch){
             if(!db)return {error:{message:'اتصال پایگاه داده برقرار نیست.'}};
-            const now=new Date().toISOString(), enriched={...patch,updated_at:now,updated_by:currentUser.key,seen_status:false,seen_by:{}};
-            const candidates=[enriched,{...patch,updated_at:now,updated_by:currentUser.key,seen_by:{}}, {...patch,updated_at:now,updated_by:currentUser.key},patch];
+            const now=new Date().toISOString(), enriched={...patch,updated_at:now,updated_by:currentUser.key,seen_status:false};
+            const candidates=[enriched,{...patch,updated_at:now,updated_by:currentUser.key}, {...patch,updated_at:now,updated_by:currentUser.key},patch];
             let result=null,lastError=null;
             for(const candidate of candidates){
                 result=await db.from('tasks').update(candidate).eq('id',id).select('*').maybeSingle();
@@ -468,7 +468,7 @@
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
 
                 return `
-                    <tr id="row-${t.id}" class="${unread ? 'row-unread' : ''}" onclick="markTaskSeen('${t.id}')" 
+                    <tr id="row-${t.id}" class="${unread ? 'row-unread' : ''}" 
                         draggable="${isAdmin ? 'true' : 'false'}" 
                         ondragstart="onDragStart(event, '${t.id}')" 
                         ondragover="onDragOver(event)" 
