@@ -53,8 +53,13 @@
 
         textarea.form-control { resize: vertical; min-height: 60px; }
 
-        .shamsi-group { display: flex; gap: 4px; }
-        .shamsi-group select { flex: 1; padding: 6px 2px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.82rem; background: #fff; }
+        .shamsi-group { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 88px; margin-inline: auto; }
+        .shamsi-group select { width: 100%; min-width: 0; padding: 5px 3px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.78rem; background: #fff; }
+        td.actions-cell, td.details-cell { vertical-align: stretch; }
+        .action-cell-content, .details-cell-content { display: flex; flex-direction: column; height: 100%; min-height: 150px; gap: 6px; }
+        .action-cell-content .progress-box { flex: 0 0 auto; }
+        .action-cell-content textarea, .details-cell-content > textarea { flex: 1 1 auto; width: 100%; min-height: 100px; height: 100%; resize: vertical; }
+        .action-cell-content .progress-slider { min-height: 24px; }
 
         .btn {
             padding: 8px 16px; border: none; border-radius: 6px; font-size: 0.88rem;
@@ -127,9 +132,9 @@
                     <th style="width: 130px;">پیگیری‌کننده</th>
                     <th style="width: 110px;">تاریخ ثبت</th>
                     <th style="width: 110px;">مهلت انجام</th>
-                    <th style="width: 180px;">تاریخ انجام</th>
-                    <th style="width: 250px;">اقدامات و درصد</th>
-                    <th style="width: 260px;">توضیحات و فایل‌ها</th>
+                    <th style="width: 105px;">تاریخ انجام</th>
+                    <th style="width: 310px;">اقدامات و درصد</th>
+                    <th style="width: 350px;">توضیحات و فایل‌ها</th>
                     <th id="actions-header" style="width: 70px; text-align: center; display: none;">عملیات</th>
                 </tr>
             </thead>
@@ -329,18 +334,26 @@
         function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(_){return {}}}
         function writeStore(key,obj){try{localStorage.setItem(key,JSON.stringify(obj))}catch(e){console.warn('localStorage unavailable',e)}}
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
-        function isTaskSeen(t){const meta=getTaskMeta(t);const seen=readStore(SEEN_KEY)[String(t.id)];return !!(seen && meta.updated_at && seen.updated_at===meta.updated_at)}
-        function getSeenSummary(t){const seen=readStore(SEEN_KEY)[String(t.id)];return seen&&seen.updated_at===getTaskMeta(t).updated_at ? (USERS[seen.user]?.title||seen.user||'') : ''}
+        function getSeenMap(t){const value=t.seen_by; if(value&&typeof value==='object'&&!Array.isArray(value))return value; const local=readStore(SEEN_KEY)[String(t.id)]; return local&&local.seen_by||{}}
+        function isTaskSeen(t){const meta=getTaskMeta(t);return !!(meta.updated_at&&getSeenMap(t)[currentUser.key]===meta.updated_at)}
+        function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&seen[k]===meta.updated_at);return key?(USERS[key]?.title||key):''}
         function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-        async function markTaskSeen(id,event){if(event){event.preventDefault();event.stopPropagation()}const t=tasks.find(x=>String(x.id)===String(id));if(!t)return;const meta=getTaskMeta(t);const seen=readStore(SEEN_KEY);seen[String(id)]={user:currentUser.key,updated_at:meta.updated_at||'initial'};writeStore(SEEN_KEY,seen);const row=document.getElementById(`row-${id}`);if(row){row.classList.remove('row-unread');const badge=row.querySelector('.receipt-badge');if(badge){badge.className='receipt-badge read';badge.textContent=`🟢 دیده شده توسط ${USERS[currentUser.key]?.title||currentUser.key}`}}}
+        async function markTaskSeen(id,event){if(event){event.preventDefault();event.stopPropagation()}const t=tasks.find(x=>String(x.id)===String(id));if(!t||!currentUser)return;const meta=getTaskMeta(t);if(!meta.updated_at||!meta.updated_by||meta.updated_by===currentUser.key)return;const seenBy={...getSeenMap(t),[currentUser.key]:meta.updated_at};let saved=false;
+            if(db){let result=await db.from('tasks').update({seen_by:seenBy,seen_status:true}).eq('id',id);if(result.error && /seen_status|column/i.test(result.error.message))result=await db.from('tasks').update({seen_by:seenBy}).eq('id',id);if(!result.error){t.seen_by=seenBy;t.seen_status=true;saved=true}else console.warn('رسید مشاهده در پایگاه‌داده ذخیره نشد؛ ستون seen_by باید از نوع jsonb باشد:',result.error.message)}
+            const local=readStore(SEEN_KEY);local[String(id)]={seen_by:seenBy,updated_at:meta.updated_at,user:currentUser.key};writeStore(SEEN_KEY,local);
+            const row=document.getElementById(`row-${id}`);if(row){row.classList.remove('row-unread');renderTable()}
+        }
         function markFileRead(id,index,event){const d=readStore(FILE_SEEN_KEY);const k=`${id}:${index}`;d[k]=d[k]||{};d[k][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);markTaskSeen(id);if(event)event.stopPropagation()}
         async function updateTask(id,patch){
-            const now=new Date().toISOString(), enriched={...patch,updated_at:now,updated_by:currentUser.key};
+            const now=new Date().toISOString(), enriched={...patch,updated_at:now,updated_by:currentUser.key,seen_status:false,seen_by:{}};
             let result=await db.from('tasks').update(enriched).eq('id',id);
+            if(result.error && /seen_status|column/i.test(result.error.message)) result=await db.from('tasks').update({...patch,updated_at:now,updated_by:currentUser.key,seen_by:{}}).eq('id',id);
+            if(result.error && /seen_by|column/i.test(result.error.message)) result=await db.from('tasks').update({...patch,updated_at:now,updated_by:currentUser.key}).eq('id',id);
             if(result.error && /updated_at|updated_by|column/i.test(result.error.message)) result=await db.from('tasks').update(patch).eq('id',id);
-            if(!result.error){const all=readStore(META_KEY);all[String(id)]={updated_at:now,updated_by:currentUser.key};writeStore(META_KEY,all)}
+            if(!result.error){const all=readStore(META_KEY);all[String(id)]={updated_at:now,updated_by:currentUser.key};writeStore(META_KEY,all);const local=readStore(SEEN_KEY);local[String(id)]={seen_by:{},updated_at:now};writeStore(SEEN_KEY,local);const task=tasks.find(x=>String(x.id)===String(id));if(task)Object.assign(task,patch,{updated_at:now,updated_by:currentUser.key,seen_by:{}})}
             return result;
         }
+
         function uploadWidget(el,mode='progress',pct=0,msg='در حال آپلود...'){
             if(!el)return;el.hidden=false;el.className='upload-status'+(mode==='success'?' success':mode==='error'?' error':'');
             const dash=75.4*(1-Math.max(0,Math.min(100,pct))/100);
@@ -387,6 +400,7 @@
                 const assigneeName = USERS[t.assignee]?.title || t.assignee;
                 const meta = getTaskMeta(t);
                 const unread = !!(meta.updated_at && meta.updated_by && meta.updated_by !== currentUser.key && !isTaskSeen(t));
+                const seenByOther = !!(meta.updated_at && meta.updated_by === currentUser.key && getSeenSummary(t));
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
 
                 return `
@@ -412,7 +426,7 @@
                         <td class="cell-readonly"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
-                        <td class="${!canEdit ? 'cell-readonly' : ''}">
+                        <td class="completion-date-cell ${!canEdit ? 'cell-readonly' : ''}">
                             ${canEdit ? `
                                 <div class="shamsi-group">
                                     <select id="comp-y-${t.id}">
@@ -433,7 +447,8 @@
                                 </div>
                             ` : `<span>${t.completion_date || '-'}</span>`}
                         </td>
-                        <td class="${!canEdit ? 'cell-readonly' : ''}">
+                        <td class="actions-cell ${!canEdit ? 'cell-readonly' : ''}">
+                            <div class="action-cell-content">
                             <div class="progress-box">
                                 <span class="progress-ring" aria-label="${t.progress || 0} درصد پیشرفت"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><circle class="meter" cx="20" cy="20" r="16" style="stroke-dashoffset:${100.53-(Math.max(0,Math.min(100,Number(t.progress)||0))*100.53/100)}"/></svg><b>${t.progress || 0}%</b></span>
                                 <input type="range" class="progress-slider" id="prog-range-${t.id}" min="0" max="100" value="${t.progress || 0}"
@@ -442,8 +457,10 @@
                                 <span id="prog-val-${t.id}" style="font-size:0.8rem;font-weight:bold;min-width:32px;">${t.progress || 0}%</span>
                             </div>
                             <textarea class="form-control" id="actions-text-${t.id}" placeholder="شرح اقدام..." ${!canEdit ? 'disabled' : ''}>${t.actions || ''}</textarea>
+                            </div>
                         </td>
-                        <td>
+                        <td class="details-cell">
+                            <div class="details-cell-content">
                             <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
@@ -457,9 +474,10 @@
                                 <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple onchange="autoUploadRow('${t.id}', this)">
                                 <div id="upload-status-${t.id}" class="upload-status" hidden></div>
                             </div>
-                            <div class="receipt-line">${unread ? '<span class="receipt-badge">🔴 تغییرات جدید (دیده نشده)</span>' : (meta.updated_at ? `<span class="receipt-badge read">🟢 دیده شده توسط ${escapeHtml(getSeenSummary(t)) || 'شما'}</span>` : '')}<button type="button" class="btn btn-sm" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button></div>
+                            <div class="receipt-line">${unread ? '<span class="receipt-badge">🔴 پیام جدید / تغییرات دیده نشده</span>' : ''}${meta.updated_at && meta.updated_by === currentUser.key ? (seenByOther ? `<span class="receipt-badge read">✅ دیده شده توسط ${escapeHtml(getSeenSummary(t))}</span>` : '<span class="receipt-badge">⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده</span>') : ''}${meta.updated_at && meta.updated_by !== currentUser.key && !unread ? `<span class="receipt-badge read">✅ دیده شده توسط ${escapeHtml(USERS[currentUser.key]?.title||currentUser.key)}</span>` : ''}<button type="button" class="btn btn-sm" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button></div>
                             <div style="margin-top:8px; text-align: left;">
                                 <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
+                            </div>
                             </div>
                         </td>
                         ${isAdmin ? `
@@ -487,6 +505,7 @@
                 const result=await updateTask(id,{completion_date,progress,actions,details});
                 if(result.error) throw result.error;
                 await fetchTasks();
+                alert('تغییرات با موفقیت ذخیره شد.');
             } catch(err){ alert('خطا در ذخیره تغییرات: '+(err.message||err)); console.error(err); }
         }
 
@@ -580,7 +599,7 @@
                 const now=new Date().toISOString(), record={description,assignee,created_date,due_date,details,files:newTaskUploaded,progress:0,actions:'',completion_date:'',order_index:tasks.length+1,updated_at:now,updated_by:currentUser.key};
                 let result; if(newTaskDraftId){result=await updateTask(newTaskDraftId,record)}else{result=await db.from('tasks').insert([record]);if(result.error && /updated_at|updated_by|column/i.test(result.error.message)){delete record.updated_at;delete record.updated_by;result=await db.from('tasks').insert([record])}}
                 if(result.error) throw result.error;
-                newTaskUploaded=[]; newTaskDraftId=null; document.getElementById('task-form').reset(); closeModal(); await fetchTasks();
+                newTaskUploaded=[]; newTaskDraftId=null; document.getElementById('task-form').reset(); closeModal(); await fetchTasks(); alert('تغییرات با موفقیت ذخیره شد.');
             } catch(err){alert('خطا در ثبت فعالیت: '+(err.message||err));console.error(err)}
             finally{btn.innerText='ذخیره فعالیت';btn.disabled=false}
         }
