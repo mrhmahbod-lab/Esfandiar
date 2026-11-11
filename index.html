@@ -79,6 +79,11 @@
         .progress-box { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .progress-slider { flex-grow: 1; }
         .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
+        .upload-progress { display: none; margin: 7px 0; }
+        .upload-progress.active { display: block; }
+        .upload-progress-track { height: 10px; overflow: hidden; border-radius: 999px; background: #e2e8f0; direction: ltr; }
+        .upload-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #2563eb, #16a34a); transition: width .15s ease; }
+        .upload-progress-label { display: flex; justify-content: space-between; gap: 8px; margin-top: 3px; color: #475569; font-size: .75rem; }
 
         .modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.5);
@@ -195,6 +200,10 @@
                 <div class="form-group">
                     <label>پیوست فایل‌ها:</label>
                     <input type="file" id="task-files" class="form-control" multiple>
+                    <div id="newtask-upload-progress" class="upload-progress" role="status" aria-live="polite">
+                        <div class="upload-progress-track"><div class="upload-progress-fill"></div></div>
+                        <div class="upload-progress-label"><span class="upload-progress-text">در انتظار آپلود</span><span class="upload-progress-percent">0%</span></div>
+                    </div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
                     <button type="button" class="btn" style="background: #cbd5e1;" onclick="closeModal()">انصراف</button>
@@ -226,6 +235,69 @@
         const MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
         let currentUser = null;
         let tasks = [];
+
+        function sameId(a, b) { return String(a) === String(b); }
+
+        function updateUploadProgress(elementId, percent, label) {
+            const box = document.getElementById(elementId);
+            if (!box) return;
+            box.classList.add('active');
+            const fill = box.querySelector('.upload-progress-fill');
+            const value = Math.max(0, Math.min(100, Number(percent) || 0));
+            if (fill) fill.style.width = value + '%';
+            const text = box.querySelector('.upload-progress-text');
+            const pct = box.querySelector('.upload-progress-percent');
+            if (text) text.textContent = label || 'در حال آپلود...';
+            if (pct) pct.textContent = Math.round(value) + '%';
+        }
+
+        // Supabase Storage REST upload via XMLHttpRequest so upload progress is observable.
+        function uploadFileWithProgress(file, filePath, progressElementId) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                const url = `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent('task-files')}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
+                xhr.open('POST', url, true);
+                xhr.setRequestHeader('apikey', SUPABASE_KEY);
+                xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
+                xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                xhr.setRequestHeader('x-upsert', 'false');
+                xhr.setRequestHeader('cache-control', '3600');
+                xhr.upload.addEventListener('progress', event => {
+                    if (event.lengthComputable) updateUploadProgress(progressElementId, event.loaded / event.total * 100, `آپلود ${file.name}`);
+                });
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        updateUploadProgress(progressElementId, 100, `آپلود شد: ${file.name}`);
+                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
+                        resolve({ name: file.name, path: filePath, url: data.publicUrl });
+                    } else {
+                        let message = xhr.statusText;
+                        try { message = JSON.parse(xhr.responseText).message || message; } catch (_) {}
+                        reject(new Error('خطا در آپلود فایل: ' + message));
+                    }
+                };
+                xhr.onerror = () => reject(new Error('ارتباط با Storage هنگام آپلود فایل ناموفق بود.'));
+                xhr.onabort = () => reject(new Error('آپلود فایل لغو شد.'));
+                updateUploadProgress(progressElementId, 0, `شروع آپلود: ${file.name}`);
+                xhr.send(file);
+            });
+        }
+
+        function makeStoragePath(file) {
+            const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const unique = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            return `${currentUser ? currentUser.key : 'user'}/${unique}_${cleanName}`;
+        }
+
+        function getStoragePath(fileRecord) {
+            if (fileRecord && fileRecord.path) return fileRecord.path;
+            const url = fileRecord && fileRecord.url;
+            if (!url) return null;
+            const marker = '/storage/v1/object/public/task-files/';
+            const at = url.indexOf(marker);
+            if (at < 0) return null;
+            try { return decodeURIComponent(url.slice(at + marker.length).split('?')[0]); } catch (_) { return url.slice(at + marker.length).split('?')[0]; }
+        }
 
         function toJalali(gy, gm, gd) {
             const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
@@ -388,6 +460,10 @@
                             </div>
                             <div style="margin-top:6px;">
                                 <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple>
+                                <div id="row-upload-progress-${t.id}" class="upload-progress" role="status" aria-live="polite">
+                                    <div class="upload-progress-track"><div class="upload-progress-fill"></div></div>
+                                    <div class="upload-progress-label"><span class="upload-progress-text">در انتظار آپلود</span><span class="upload-progress-percent">0%</span></div>
+                                </div>
                             </div>
                             <div style="margin-top:8px; text-align: left;">
                                 <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
@@ -404,7 +480,7 @@
         }
 
         async function saveTaskRow(id) {
-            const t = tasks.find(x => x.id === id);
+            const t = tasks.find(x => sameId(x.id, id));
             if (!t) return;
             try {
                 const isAdmin = currentUser.role === 'admin';
@@ -435,13 +511,13 @@
                 const fileInput = document.getElementById(`new-file-${id}`);
                 const updatedFiles = [...(t.files || [])];
                 if (fileInput && fileInput.files.length > 0) {
-                    for (let file of fileInput.files) {
-                        const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-                        const filePath = `${Date.now()}_${cleanName}`;
-                        const { error: uploadError } = await db.storage.from('task-files').upload(filePath, file);
-                        if (uploadError) throw new Error('خطا در آپلود فایل: ' + uploadError.message);
-                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                        updatedFiles.push({ name: file.name, url: data.publicUrl });
+                    const progressId = `row-upload-progress-${id}`;
+                    const fileList = Array.from(fileInput.files);
+                    for (let index = 0; index < fileList.length; index++) {
+                        const file = fileList[index];
+                        const path = makeStoragePath(file);
+                        updateUploadProgress(progressId, 0, `فایل ${index + 1} از ${fileList.length}`);
+                        updatedFiles.push(await uploadFileWithProgress(file, path, progressId));
                     }
                 }
 
@@ -461,7 +537,8 @@
         // ==================== توابع جابجایی ردیف‌ها ====================
 
         async function moveTask(taskId, direction) {
-            const idx = tasks.findIndex(t => t.id === taskId);
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const idx = tasks.findIndex(t => sameId(t.id, taskId));
             if (idx === -1) return;
             
             const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -478,6 +555,7 @@
         let draggedTaskId = null;
 
         function onDragStart(event, taskId) {
+            if (!currentUser || currentUser.role !== 'admin') { event.preventDefault(); return; }
             draggedTaskId = taskId;
             event.dataTransfer.effectAllowed = 'move';
         }
@@ -489,10 +567,11 @@
 
         async function onDrop(event, targetTaskId) {
             event.preventDefault();
+            if (!currentUser || currentUser.role !== 'admin') return;
             if (!draggedTaskId || draggedTaskId === targetTaskId) return;
 
-            const oldIdx = tasks.findIndex(t => t.id === draggedTaskId);
-            const newIdx = tasks.findIndex(t => t.id === targetTaskId);
+            const oldIdx = tasks.findIndex(t => sameId(t.id, draggedTaskId));
+            const newIdx = tasks.findIndex(t => sameId(t.id, targetTaskId));
             
             if (oldIdx === -1 || newIdx === -1) return;
 
@@ -505,6 +584,7 @@
         }
 
         async function saveNewOrderToDB() {
+            if (!currentUser || currentUser.role !== 'admin') return;
             for (let i = 0; i < tasks.length; i++) {
                 tasks[i].order_index = i + 1;
                 await db.from('tasks').update({ order_index: i + 1 }).eq('id', tasks[i].id);
@@ -512,12 +592,18 @@
         }
 
         async function removeFile(taskId, fileIdx) {
+            if (!currentUser || currentUser.role !== 'admin') { alert('فقط مدیر مجاز به حذف فایل است.'); return; }
             if (!confirm('این فایل حذف شود؟')) return;
             try {
                 const t = tasks.find(x => x.id === taskId);
                 if (!t) return;
                 const files = [...(t.files || [])];
-                files.splice(fileIdx, 1);
+                const [fileRecord] = files.splice(fileIdx, 1);
+                const storagePath = getStoragePath(fileRecord);
+                if (storagePath) {
+                    const { error: storageError } = await db.storage.from('task-files').remove([storagePath]);
+                    if (storageError) throw storageError;
+                }
                 const { error } = await db.from('tasks').update({ files }).eq('id', taskId);
                 if (error) throw error;
                 await fetchTasks();
@@ -562,13 +648,12 @@
                 const fileInput = document.getElementById('task-files');
                 const uploaded = [];
                 if (fileInput && fileInput.files.length > 0) {
-                    for (let file of fileInput.files) {
-                        const cleanName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-                        const filePath = `${Date.now()}_${cleanName}`;
-                        const { error: upErr } = await db.storage.from('task-files').upload(filePath, file);
-                        if (upErr) throw new Error('خطا در آپلود: ' + upErr.message);
-                        const { data } = db.storage.from('task-files').getPublicUrl(filePath);
-                        uploaded.push({ name: file.name, url: data.publicUrl });
+                    const fileList = Array.from(fileInput.files);
+                    for (let index = 0; index < fileList.length; index++) {
+                        const file = fileList[index];
+                        const path = makeStoragePath(file);
+                        updateUploadProgress('newtask-upload-progress', 0, `فایل ${index + 1} از ${fileList.length}`);
+                        uploaded.push(await uploadFileWithProgress(file, path, 'newtask-upload-progress'));
                     }
                 }
 
@@ -591,6 +676,7 @@
         }
 
         async function removeTask(id) {
+            if (!currentUser || currentUser.role !== 'admin') { alert('فقط مدیر مجاز به حذف فعالیت است.'); return; }
             if (!confirm('این فعالیت به طور کامل حذف شود؟')) return;
             try {
                 const { error } = await db.from('tasks').delete().eq('id', id);
