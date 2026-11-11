@@ -100,7 +100,7 @@
         @keyframes ring-pulse{0%{transform:scale(.8);opacity:.8}100%{transform:scale(1.8);opacity:0}}
         .row-unread td{background:#fff7f5!important}.row-unread{box-shadow:inset -4px 0 #ef4444,0 0 13px rgba(239,68,68,.10)}
         .receipt-badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:5px 9px;margin:2px 0;font-size:.75rem;line-height:1.6;font-weight:700;background:#fff1f2;color:#be123c;white-space:normal;max-width:100%;width:fit-content;overflow-wrap:anywhere}
-        .receipt-badge.read{background:#ecfdf5;color:#047857}.receipt-line{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-top:7px;min-width:0}.receipt-action{display:block;align-self:flex-start;max-width:100%;white-space:normal;line-height:1.6;margin-right:0!important;overflow-wrap:anywhere}
+        .receipt-badge.resolved{background:#fef9c3;color:#15803d;border:1px solid #facc15;border-radius:8px}.receipt-badge.unresolved,.receipt-badge.pending{background:#0f172a;color:#f87171;border:1px solid #020617;border-radius:8px}.receipt-badge.neutral{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px}.receipt-line{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-top:7px;min-width:0}.receipt-action{display:block;align-self:flex-start;max-width:100%;white-space:normal;line-height:1.6;margin-right:0!important;overflow-wrap:anywhere}
         .progress-ring{width:40px;height:40px;display:inline-grid;place-items:center;position:relative;vertical-align:middle}.progress-ring svg{width:40px;height:40px;transform:rotate(-90deg)}.progress-ring circle{fill:none;stroke:#dbeafe;stroke-width:4}.progress-ring .meter{stroke:#2563eb;stroke-linecap:round;stroke-dasharray:100.53;transition:stroke-dashoffset .3s}.progress-ring b{position:absolute;font-size:9px;direction:ltr}
         .file-link{word-break:break-all}
         @media(max-width:700px){body{padding:8px}.header-card{padding:12px}.upload-status{font-size:.7rem}.receipt-line{align-items:stretch;gap:6px}.receipt-line .receipt-badge{align-self:stretch;width:100%;font-size:.72rem;padding:6px 9px;white-space:normal;overflow-wrap:anywhere}.receipt-line .receipt-action{align-self:stretch;width:100%;padding:7px 8px}}
@@ -334,22 +334,58 @@
         function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(_){return {}}}
         function writeStore(key,obj){try{localStorage.setItem(key,JSON.stringify(obj))}catch(e){console.warn('localStorage unavailable',e)}}
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
-        function getSeenMap(t){const value=t.seen_by&&typeof t.seen_by==='object'&&!Array.isArray(t.seen_by)?t.seen_by:{};const localEntry=readStore(SEEN_KEY)[String(t.id)],local=localEntry&&localEntry.seen_by||{};const merged={...value};for(const k of Object.keys(local)){const stamp=local[k];if(!merged[k]||String(stamp)>=String(merged[k]))merged[k]=stamp}return merged}
+        function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
+        function getSeenMap(t){const value=normalizeSeenMap(t.seen_by);const localEntry=readStore(SEEN_KEY)[String(t.id)],local=normalizeSeenMap(localEntry&&localEntry.seen_by);const merged={...value};for(const k of Object.keys(local)){const stamp=local[k];if(!merged[k]||String(stamp)>=String(merged[k]))merged[k]=stamp}return merged}
         function isTaskSeen(t){const meta=getTaskMeta(t);return !!(meta.updated_at&&getSeenMap(t)[currentUser.key]===meta.updated_at)}
         function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&seen[k]===meta.updated_at);return key?(USERS[key]?.name||key):''}
         function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-        async function markTaskSeen(id,event){if(event){event.preventDefault();event.stopPropagation()}const t=tasks.find(x=>String(x.id)===String(id));if(!t||!currentUser)return;const meta=getTaskMeta(t);if(!meta.updated_at||!meta.updated_by||meta.updated_by===currentUser.key)return;const seenBy={...getSeenMap(t),[currentUser.key]:meta.updated_at};t.seen_by=seenBy;t.seen_status=true;const local=readStore(SEEN_KEY);local[String(id)]={seen_by:seenBy,updated_at:meta.updated_at,user:currentUser.key};writeStore(SEEN_KEY,local);
-            if(db){let result=await db.from('tasks').update({seen_by:seenBy,seen_status:true}).eq('id',id);if(result.error && /seen_status|column/i.test(result.error.message))result=await db.from('tasks').update({seen_by:seenBy}).eq('id',id);if(result.error)console.warn('رسید مشاهده در پایگاه‌داده ذخیره نشد؛ رسید محلی ثبت شد. ستون seen_by باید jsonb باشد:',result.error.message)}
-                        const row=document.getElementById(`row-${id}`);if(row){row.classList.remove('row-unread');renderTable()}
+        function isSchemaCompatibilityError(error){const msg=String(error?.message||error||'');return /column|schema cache|does not exist|unknown field|invalid input syntax|cannot cast|type .*json|jsonb|22P02|42703|PGRST204/i.test(msg)||['42703','22P02','42804','PGRST204'].includes(error?.code)}
+        async function persistTaskPatch(id,payload){
+            const candidates=[],add=p=>{const key=JSON.stringify(p);if(!candidates.some(x=>JSON.stringify(x)===key))candidates.push(p)};
+            add(payload);
+            if(Object.prototype.hasOwnProperty.call(payload,'seen_by')){add({...payload,seen_by:JSON.stringify(payload.seen_by)});}
+            if(Object.prototype.hasOwnProperty.call(payload,'seen_status')){const p={...payload};delete p.seen_status;add(p);if(Object.prototype.hasOwnProperty.call(p,'seen_by'))add({...p,seen_by:JSON.stringify(p.seen_by)});}
+            if(Object.prototype.hasOwnProperty.call(payload,'seen_by')){const p={...payload};delete p.seen_by;add(p);if(Object.prototype.hasOwnProperty.call(p,'seen_status')){const q={...p};delete q.seen_status;add(q);}}
+            if(Object.prototype.hasOwnProperty.call(payload,'updated_at')||Object.prototype.hasOwnProperty.call(payload,'updated_by')){const p={...payload};delete p.updated_at;delete p.updated_by;add(p);}
+            // Last-resort compatibility path only; metadata remains in local fallback if the schema lacks all receipt columns.
+            add(Object.fromEntries(Object.entries(payload).filter(([k])=>!['seen_by','seen_status','updated_at','updated_by'].includes(k))));
+            let lastError=null;
+            for(const candidate of candidates){
+                let result=await db.from('tasks').update(candidate).eq('id',id).select('id').maybeSingle();
+                if(!result.error&&result.data){return {result, persisted:candidate};}
+                if(!result.error&&!result.data)result={...result,error:{message:'رکورد به‌روزرسانی نشد (ممکن است مجوز یا شناسه نامعتبر باشد).'}};
+                lastError=result.error;
+                if(!isSchemaCompatibilityError(lastError))break;
+            }
+            return {result:{error:lastError||{message:'ذخیره در پایگاه داده ناموفق بود.'}},persisted:null};
+        }
+        async function markTaskSeen(id,event){
+            if(event){event.preventDefault();event.stopPropagation()}
+            const t=tasks.find(x=>String(x.id)===String(id));if(!t||!currentUser)return;
+            const meta=getTaskMeta(t);if(!meta.updated_at||!meta.updated_by||meta.updated_by===currentUser.key)return;
+            const seenBy={...getSeenMap(t),[currentUser.key]:meta.updated_at};
+            if(!db){console.warn('برای همگام‌سازی رسید مشاهده اتصال پایگاه داده لازم است.');return}
+            // Persist first; only reflect the receipt locally after the database update succeeds.
+            const payload={seen_by:seenBy,seen_status:true,updated_at:meta.updated_at,updated_by:meta.updated_by};
+            const {result,persisted}=await persistTaskPatch(id,payload);
+            if(result.error){console.warn('رسید مشاهده در پایگاه‌داده ذخیره نشد:',result.error.message);return}
+            t.seen_by=seenBy;t.seen_status=true;
+            const local=readStore(SEEN_KEY);local[String(id)]={seen_by:seenBy,updated_at:meta.updated_at,user:currentUser.key};writeStore(SEEN_KEY,local);
+            if(!persisted||!Object.prototype.hasOwnProperty.call(persisted,'seen_by'))console.warn('ستون seen_by در جدول موجود نیست؛ رسید فقط در مرورگر فعلی نگه‌داری شد. برای همگام‌سازی بین مرورگرها ستون JSONB یا TEXT به نام seen_by اضافه کنید.');
+            const row=document.getElementById(`row-${id}`);if(row)renderTable();
         }
         function markFileRead(id,index,event){const d=readStore(FILE_SEEN_KEY);const k=`${id}:${index}`;d[k]=d[k]||{};d[k][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);markTaskSeen(id);if(event)event.stopPropagation()}
         async function updateTask(id,patch){
+            if(!db)return {error:{message:'اتصال پایگاه داده برقرار نیست.'}};
             const now=new Date().toISOString(), enriched={...patch,updated_at:now,updated_by:currentUser.key,seen_status:false,seen_by:{}};
-            let result=await db.from('tasks').update(enriched).eq('id',id);
-            if(result.error && /seen_status|column/i.test(result.error.message)) result=await db.from('tasks').update({...patch,updated_at:now,updated_by:currentUser.key,seen_by:{}}).eq('id',id);
-            if(result.error && /seen_by|column/i.test(result.error.message)) result=await db.from('tasks').update({...patch,updated_at:now,updated_by:currentUser.key}).eq('id',id);
-            if(result.error && /updated_at|updated_by|column/i.test(result.error.message)) result=await db.from('tasks').update(patch).eq('id',id);
-            if(!result.error){const all=readStore(META_KEY);all[String(id)]={updated_at:now,updated_by:currentUser.key};writeStore(META_KEY,all);const local=readStore(SEEN_KEY);local[String(id)]={seen_by:{},updated_at:now};writeStore(SEEN_KEY,local);const task=tasks.find(x=>String(x.id)===String(id));if(task)Object.assign(task,patch,{updated_at:now,updated_by:currentUser.key,seen_by:{}})}
+            const {result,persisted}=await persistTaskPatch(id,enriched);
+            if(result.error)return result;
+            const all=readStore(META_KEY);all[String(id)]={updated_at:now,updated_by:currentUser.key};writeStore(META_KEY,all);
+            const local=readStore(SEEN_KEY);local[String(id)]={seen_by:{},updated_at:now,user:currentUser.key};writeStore(SEEN_KEY,local);
+            const task=tasks.find(x=>String(x.id)===String(id));
+            if(task){Object.assign(task,patch,{updated_at:now,updated_by:currentUser.key});if(persisted&&Object.prototype.hasOwnProperty.call(persisted,'seen_by'))task.seen_by={};if(persisted&&Object.prototype.hasOwnProperty.call(persisted,'seen_status'))task.seen_status=false;}
+            if(!persisted||!Object.prototype.hasOwnProperty.call(persisted,'updated_at')||!Object.prototype.hasOwnProperty.call(persisted,'updated_by'))console.warn('ستون‌های metadata رسید در جدول کامل نیستند؛ برخی رسیدها در این مرورگر به صورت محلی نگه‌داری می‌شوند.');
+            if(!persisted||!Object.prototype.hasOwnProperty.call(persisted,'seen_by'))console.warn('ستون seen_by در جدول موجود نیست؛ برای همگام‌سازی بین مرورگرها آن را به‌صورت JSONB یا TEXT اضافه کنید.');
             return result;
         }
 
@@ -474,7 +510,7 @@
                                 <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple onchange="autoUploadRow('${t.id}', this)">
                                 <div id="upload-status-${t.id}" class="upload-status" hidden></div>
                             </div>
-                            <div class="receipt-line">${unread?`<span class="receipt-badge unresolved">🔴 پیام جدید / تغییرات دیده نشده</span>`:meta.updated_at&&meta.updated_by===currentUser.key?(seenByOther?`<span class="receipt-badge resolved">✅ دیده شده توسط ${escapeHtml(getSeenSummary(t))}</span>`:`<span class="receipt-badge pending">⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده</span>`):meta.updated_at?`<span class="receipt-badge resolved">✅ مشاهده شد توسط ${escapeHtml(USERS[currentUser.key]?.name||currentUser.key)}</span>`:`<span class="receipt-badge neutral">ℹ️ هنوز تغییری ثبت نشده</span>`}<button type="button" class="btn btn-sm receipt-action" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button></div>
+                            <div class="receipt-line">${unread?`<span class="receipt-badge unresolved">⏳ پیام جدید / دیده نشده</span>`:meta.updated_at&&meta.updated_by===currentUser.key?(seenByOther?`<span class="receipt-badge resolved">✅ دیده‌شده توسط ${escapeHtml(getSeenSummary(t))}</span>`:`<span class="receipt-badge pending">⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده</span>`):meta.updated_at?`<span class="receipt-badge resolved">✅ دیده‌شده توسط ${escapeHtml(USERS[currentUser.key]?.name||currentUser.key)}</span>`:`<span class="receipt-badge neutral">ℹ️ هنوز تغییری ثبت نشده</span>`}<button type="button" class="btn btn-sm receipt-action" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button></div>
                             <div style="margin-top:8px; text-align: left;">
                                 <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
                             </div>
