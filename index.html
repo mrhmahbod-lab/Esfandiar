@@ -301,10 +301,11 @@
             localStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
             document.getElementById('login-modal').style.display = 'none';
             setupInterface();
-            fetchTasks();
+            fetchTasks();startTaskSync();
         }
 
         function logout() {
+            if(pollTimer){clearInterval(pollTimer);pollTimer=null;}if(realtimeChannel){db.removeChannel(realtimeChannel);realtimeChannel=null;}
             localStorage.removeItem('esfandiar_user');
             location.reload();
         }
@@ -316,7 +317,19 @@
             document.getElementById('actions-header').style.display = isAdmin ? 'table-cell' : 'none';
         }
 
-        async function fetchTasks() {
+        let realtimeChannel=null,pollTimer=null,refreshPending=false,refreshDebounce=null;
+        function hasActiveWork(){
+            const modal=document.getElementById('task-modal');if(modal&&modal.style.display==='flex')return true;
+            if(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))return true;
+            return [...document.querySelectorAll('.upload-status')].some(x=>!x.hidden&&x.classList.contains('progress'))||[...document.querySelectorAll('input[type=file]')].some(x=>x.disabled);
+        }
+        function queueSafeRefresh(){clearTimeout(refreshDebounce);refreshDebounce=setTimeout(()=>{if(!refreshPending)return;if(hasActiveWork())return;refreshPending=false;fetchTasks({background:true});},900);}
+        function startTaskSync(){
+            if(!db||!currentUser)return;
+            if(!pollTimer)pollTimer=setInterval(()=>fetchTasks({background:true}),5000);
+            if(!realtimeChannel){realtimeChannel=db.channel('public-tasks-sync').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{refreshPending=true;queueSafeRefresh()}).subscribe();}
+        }
+        async function fetchTasks(options={}) {
             if (!db) {
                 document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در ارتباط با پایگاه داده</td></tr>';
                 return;
@@ -327,7 +340,8 @@
                 return;
             }
             tasks = data || [];
-            renderTable();
+            if(options.background&&hasActiveWork()){refreshPending=true;return;}
+            refreshPending=false;renderTable();
         }
 
         const META_KEY='esfandiar_task_meta_v1', SEEN_KEY='esfandiar_seen_v1', FILE_SEEN_KEY='esfandiar_file_seen_v1';
@@ -335,9 +349,10 @@
         function writeStore(key,obj){try{localStorage.setItem(key,JSON.stringify(obj))}catch(e){console.warn('localStorage unavailable',e)}}
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
-        function getSeenMap(t){const value=normalizeSeenMap(t.seen_by);const localEntry=readStore(SEEN_KEY)[String(t.id)],local=normalizeSeenMap(localEntry&&localEntry.seen_by);const merged={...value};for(const k of Object.keys(local)){const stamp=local[k];if(!merged[k]||String(stamp)>=String(merged[k]))merged[k]=stamp}return merged}
-        function isTaskSeen(t){const meta=getTaskMeta(t);return !!(meta.updated_at&&getSeenMap(t)[currentUser.key]===meta.updated_at)}
-        function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&seen[k]===meta.updated_at);return key?(USERS[key]?.name||key):''}
+        function getSeenMap(t){return normalizeSeenMap(t.seen_by)}
+        function sameInstant(a,b){const x=Date.parse(a),y=Date.parse(b);return Number.isFinite(x)&&Number.isFinite(y)&&x===y}
+        function isTaskSeen(t){const meta=getTaskMeta(t),stamp=getSeenMap(t)[currentUser.key];return !!(meta.updated_at&&stamp&&sameInstant(stamp,meta.updated_at))}
+        function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&sameInstant(seen[k],meta.updated_at));return key?(USERS[key]?.name||key):''}
         function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
         function isSchemaCompatibilityError(error){const msg=String(error?.message||error||'');return /column|schema cache|does not exist|unknown field|invalid input syntax|cannot cast|type .*json|jsonb|22P02|42703|PGRST204/i.test(msg)||['42703','22P02','42804','PGRST204'].includes(error?.code)}
         async function persistTaskPatch(id,payload){
@@ -363,29 +378,42 @@
             if(event){event.preventDefault();event.stopPropagation()}
             const t=tasks.find(x=>String(x.id)===String(id));if(!t||!currentUser)return;
             const meta=getTaskMeta(t);if(!meta.updated_at||!meta.updated_by||meta.updated_by===currentUser.key)return;
-            const seenBy={...getSeenMap(t),[currentUser.key]:meta.updated_at};
-            if(!db){console.warn('برای همگام‌سازی رسید مشاهده اتصال پایگاه داده لازم است.');return}
-            // Persist first; only reflect the receipt locally after the database update succeeds.
-            const payload={seen_by:seenBy,seen_status:true,updated_at:meta.updated_at,updated_by:meta.updated_by};
-            const {result,persisted}=await persistTaskPatch(id,payload);
-            if(result.error){console.warn('رسید مشاهده در پایگاه‌داده ذخیره نشد:',result.error.message);return}
-            t.seen_by=seenBy;t.seen_status=true;
-            const local=readStore(SEEN_KEY);local[String(id)]={seen_by:seenBy,updated_at:meta.updated_at,user:currentUser.key};writeStore(SEEN_KEY,local);
-            if(!persisted||!Object.prototype.hasOwnProperty.call(persisted,'seen_by'))console.warn('ستون seen_by در جدول موجود نیست؛ رسید فقط در مرورگر فعلی نگه‌داری شد. برای همگام‌سازی بین مرورگرها ستون JSONB یا TEXT به نام seen_by اضافه کنید.');
-            const row=document.getElementById(`row-${id}`);if(row)renderTable();
+            if(!db){alert('رسید مشاهده ذخیره نشد: اتصال پایگاه داده برقرار نیست.');return}
+            try{
+                const {data,error}=await db.rpc('record_task_receipt',{p_task_id:id,p_user_key:currentUser.key,p_expected_updated_at:meta.updated_at});
+                if(error)throw error;
+                const row=Array.isArray(data)?data[0]:data;
+                if(!row||!row.updated_at||!row.seen_by)throw new Error('پاسخ سرور فاقد رسید ذخیره‌شده است؛ migration رسید را بررسی کنید.');
+                t.seen_by=normalizeSeenMap(row.seen_by);t.updated_at=row.updated_at;t.updated_by=row.updated_by||meta.updated_by;
+                const rowEl=document.getElementById(`row-${id}`);if(rowEl){rowEl.classList.toggle('row-unread',!!(getTaskMeta(t).updated_by!==currentUser.key&&!isTaskSeen(t)));updateReceiptBadge(t);}
+            }catch(err){console.error('رسید مشاهده در سرور ذخیره نشد:',err);alert('رسید مشاهده در پایگاه داده ذخیره نشد: '+(err.message||err)+'\nبرای همگام‌سازی بین مرورگرها migration فایل SQL لازم است و دسترسی UPDATE/RPC باید برقرار باشد.');}
+        }
+        function updateReceiptBadge(t){
+            const row=document.getElementById(`row-${t.id}`);if(!row)return;
+            const line=row.querySelector('.receipt-line');if(!line)return;
+            const meta=getTaskMeta(t),unread=!!(meta.updated_at&&meta.updated_by&&meta.updated_by!==currentUser.key&&!isTaskSeen(t));
+            const seenByOther=!!(meta.updated_at&&meta.updated_by===currentUser.key&&getSeenSummary(t));
+            const text=unread?'⏳ پیام جدید / دیده نشده':meta.updated_at&&meta.updated_by===currentUser.key?(seenByOther?`✅ دیده‌شده توسط ${escapeHtml(getSeenSummary(t))}`:'⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده'):meta.updated_at?`✅ دیده‌شده توسط ${escapeHtml(USERS[currentUser.key]?.name||currentUser.key)}`:'ℹ️ هنوز تغییری ثبت نشده';
+            const klass=unread?'unresolved':meta.updated_at&&((meta.updated_by===currentUser.key&&seenByOther)||isTaskSeen(t))?'resolved':meta.updated_at?'pending':'neutral';
+            const badge=line.querySelector('.receipt-badge');if(badge){badge.className='receipt-badge '+klass;badge.textContent=text;}
         }
         function markFileRead(id,index,event){const d=readStore(FILE_SEEN_KEY);const k=`${id}:${index}`;d[k]=d[k]||{};d[k][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);markTaskSeen(id);if(event)event.stopPropagation()}
         async function updateTask(id,patch){
             if(!db)return {error:{message:'اتصال پایگاه داده برقرار نیست.'}};
             const now=new Date().toISOString(), enriched={...patch,updated_at:now,updated_by:currentUser.key,seen_status:false,seen_by:{}};
-            const {result,persisted}=await persistTaskPatch(id,enriched);
-            if(result.error)return result;
-            const all=readStore(META_KEY);all[String(id)]={updated_at:now,updated_by:currentUser.key};writeStore(META_KEY,all);
-            const local=readStore(SEEN_KEY);local[String(id)]={seen_by:{},updated_at:now,user:currentUser.key};writeStore(SEEN_KEY,local);
-            const task=tasks.find(x=>String(x.id)===String(id));
-            if(task){Object.assign(task,patch,{updated_at:now,updated_by:currentUser.key});if(persisted&&Object.prototype.hasOwnProperty.call(persisted,'seen_by'))task.seen_by={};if(persisted&&Object.prototype.hasOwnProperty.call(persisted,'seen_status'))task.seen_status=false;}
-            if(!persisted||!Object.prototype.hasOwnProperty.call(persisted,'updated_at')||!Object.prototype.hasOwnProperty.call(persisted,'updated_by'))console.warn('ستون‌های metadata رسید در جدول کامل نیستند؛ برخی رسیدها در این مرورگر به صورت محلی نگه‌داری می‌شوند.');
-            if(!persisted||!Object.prototype.hasOwnProperty.call(persisted,'seen_by'))console.warn('ستون seen_by در جدول موجود نیست؛ برای همگام‌سازی بین مرورگرها آن را به‌صورت JSONB یا TEXT اضافه کنید.');
+            const candidates=[enriched,{...patch,updated_at:now,updated_by:currentUser.key,seen_by:{}}, {...patch,updated_at:now,updated_by:currentUser.key},patch];
+            let result=null,lastError=null;
+            for(const candidate of candidates){
+                result=await db.from('tasks').update(candidate).eq('id',id).select('*').maybeSingle();
+                if(!result.error&&result.data)break;
+                if(!result.error&&!result.data)result={...result,error:{message:'رکورد به‌روزرسانی نشد (مجوز یا شناسه را بررسی کنید).'}};
+                lastError=result.error;if(!isSchemaCompatibilityError(lastError))break;
+            }
+            if(result?.error)return result;
+            if(!result?.data)return {error:lastError||{message:'نتیجه ذخیره از سرور دریافت نشد.'}};
+            const saved=result.data, task=tasks.find(x=>String(x.id)===String(id));
+            if(task)Object.assign(task,saved);
+            if(saved.updated_at&&saved.updated_by){const all=readStore(META_KEY);all[String(id)]={updated_at:saved.updated_at,updated_by:saved.updated_by};writeStore(META_KEY,all);}
             return result;
         }
 
