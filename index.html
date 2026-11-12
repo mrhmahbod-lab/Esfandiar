@@ -84,6 +84,7 @@
         .progress-box { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .progress-slider { flex-grow: 1; }
         .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
+        .file-link.file-read{box-shadow:inset 0 -2px #16a34a}.file-link.file-unread{box-shadow:inset 0 -2px #f59e0b}
 
         .modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.5);
@@ -386,76 +387,70 @@
             return `${String(taskId)}:file:${encodeURIComponent(identity||'unknown')}`;
         }
         function normalizeFileSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
-        const FILE_SEEN_NAMESPACE='__file_seen_v1';
-        function getServerFileSeen(t){
-            const direct=normalizeFileSeenMap(t.file_seen);
-            const shared=normalizeSeenMap(t.seen_by);
-            const nested=normalizeFileSeenMap(shared[FILE_SEEN_NAMESPACE]);
-            return {...nested,...direct};
+        function getServerFileSeen(task){
+            // Dedicated file_seen JSONB is authoritative; never mix receipts from another task.
+            return normalizeFileSeenMap(task&&task.file_seen);
         }
-        function isFileRead(taskId,index,file){
-            if(!currentUser)return false;
-            const store=readStore(FILE_SEEN_KEY), stable=getFileSeenKey(taskId,file), legacy=store[`${taskId}:${index}`];
-            const local=store[stable], remote=getServerFileSeen(tasks.find(t=>String(t.id)===String(taskId))||{});
-            const remoteEntry=remote[stable]||remote[`${taskId}:${index}`]||remote[`index:${index}`];
-            if((local&&typeof local==='object'&&local[currentUser.key])||(remoteEntry&&typeof remoteEntry==='object'&&remoteEntry[currentUser.key]))return true;
-            // Migrate old browser index-based receipts to the stable identity key without dropping them.
-            if(legacy&&typeof legacy==='object'&&legacy[currentUser.key]){
-                store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
-                store[stable][currentUser.key]=legacy[currentUser.key];writeStore(FILE_SEEN_KEY,store);return true;
+        function isFileRead(task,index,file){
+            if(!currentUser||!task||!file)return false;
+            const stable=getFileSeenKey(task.id,file), remote=getServerFileSeen(task);
+            const remoteEntry=remote[stable];
+            if(remoteEntry&&typeof remoteEntry==='object'&&remoteEntry[currentUser.key])return true;
+            // Legacy browser records are used only when the server has no matching receipt.
+            const store=readStore(FILE_SEEN_KEY), local=store[stable], legacy=store[`${task.id}:${index}`];
+            return !!((local&&typeof local==='object'&&local[currentUser.key])||(legacy&&typeof legacy==='object'&&legacy[currentUser.key]));
+        }
+        function saveLocalFileReceipt(taskId,stable,stamp){
+            const store=readStore(FILE_SEEN_KEY);
+            store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
+            store[stable][currentUser.key]=stamp;
+            writeStore(FILE_SEEN_KEY,store);
+        }
+        function clearLocalFileReceipt(stable){
+            const store=readStore(FILE_SEEN_KEY);
+            if(store[stable]&&typeof store[stable]==='object'){
+                delete store[stable][currentUser.key];
+                if(!Object.keys(store[stable]).length)delete store[stable];
+                writeStore(FILE_SEEN_KEY,store);
             }
-            return false;
         }
-        async function persistFileRead(taskId,file,index){
-            const stable=getFileSeenKey(taskId,file), local=readStore(FILE_SEEN_KEY);
-            const old=local[`${taskId}:${index}`];local[stable]=local[stable]&&typeof local[stable]==='object'?local[stable]:{};
-            local[stable][currentUser.key]=new Date().toISOString();
-            if(old&&typeof old==='object'&&old[currentUser.key])local[stable][currentUser.key]=old[currentUser.key];
-            writeStore(FILE_SEEN_KEY,local);
+        async function persistFileRead(taskId,file,index,stamp){
             if(!db||!currentUser)return false;
-            const schemaErr=e=>isSchemaCompatibilityError(e)&&/file_seen|column|schema cache|does not exist|unknown field|PGRST204/i.test(String(e?.message||e));
+            const stable=getFileSeenKey(taskId,file);
             for(let attempt=0;attempt<4;attempt++){
                 const fetched=await db.from('tasks').select('*').eq('id',taskId).maybeSingle();
-                if(fetched.error){console.warn('دریافت وضعیت رسید فایل از سرور ناموفق بود:',fetched.error);return false;}
-                if(!fetched.data)return false;
-                const row=fetched.data, direct=normalizeFileSeenMap(row.file_seen), shared=normalizeSeenMap(row.seen_by);
-                const merged={...normalizeFileSeenMap(shared[FILE_SEEN_NAMESPACE]),...direct};
-                merged[stable]=merged[stable]&&typeof merged[stable]==='object'?merged[stable]:{};
-                merged[stable][currentUser.key]=local[stable][currentUser.key];
-                const variants=[merged,JSON.stringify(merged)];let stored=false, missingColumn=false,lastError=null;
-                // Preferred persistence: dedicated tasks.file_seen JSON/JSONB column.
-                for(const value of variants){
-                    let q=db.from('tasks').update({file_seen:value}).eq('id',taskId);
-                    if(row.updated_at)q=q.eq('updated_at',row.updated_at);
-                    const result=await q.select('*').maybeSingle();
-                    if(!result.error&&result.data){Object.assign(row,result.data);stored=true;break;}
-                    lastError=result.error;
-                    if(schemaErr(lastError)){missingColumn=true;break;}
-                    if(!isSchemaCompatibilityError(lastError)){console.warn('ثبت رسید فایل در ستون file_seen ناموفق بود:',lastError);return false;}
-                }
-                // Any schema/type incompatibility on the optional column triggers the existing-column fallback.
-                if(!stored&&lastError&&isSchemaCompatibilityError(lastError))missingColumn=true;
-                // Backward-compatible fallback: retain per-file receipts in the existing seen_by JSON map.
-                if(!stored&&missingColumn){
-                    const fallback={...shared,[FILE_SEEN_NAMESPACE]:merged};
-                    for(const value of [fallback,JSON.stringify(fallback)]){
-                        let q=db.from('tasks').update({seen_by:value}).eq('id',taskId);
-                        if(row.updated_at)q=q.eq('updated_at',row.updated_at);
-                        const result=await q.select('*').maybeSingle();
-                        if(!result.error&&result.data){Object.assign(row,result.data);stored=true;break;}
-                        lastError=result.error;
-                        if(!isSchemaCompatibilityError(lastError)){console.warn('ثبت رسید فایل در seen_by ناموفق بود:',lastError);return false;}
-                    }
-                }
-                if(stored){
-                    const task=tasks.find(t=>String(t.id)===String(taskId));if(task){task.file_seen=normalizeFileSeenMap(row.file_seen);task.seen_by=normalizeSeenMap(row.seen_by);}
+                if(fetched.error)throw fetched.error;
+                if(!fetched.data)throw new Error('وظیفه در پایگاه داده پیدا نشد.');
+                const latest=fetched.data;
+                const fileSeen=normalizeFileSeenMap(latest.file_seen);
+                fileSeen[stable]=fileSeen[stable]&&typeof fileSeen[stable]==='object'?fileSeen[stable]:{};
+                // Only this file/current pseudo-user are changed; all other receipt keys survive.
+                fileSeen[stable][currentUser.key]=stamp;
+                const seen=normalizeSeenMap(latest.seen_by);
+                const meta=getTaskMeta(latest), taskStamp=latest.updated_at||meta.updated_at;
+                if(taskStamp)seen[currentUser.key]=taskStamp;
+                let query=db.from('tasks').update({file_seen:fileSeen,seen_by:seen}).eq('id',taskId);
+                if(latest.updated_at)query=query.eq('updated_at',latest.updated_at);
+                const written=await query.select('*').maybeSingle();
+                if(written.error)throw written.error;
+                if(written.data){
+                    const task=tasks.find(x=>String(x.id)===String(taskId));
+                    if(task){Object.assign(task,written.data);task.file_seen=normalizeFileSeenMap(written.data.file_seen);task.seen_by=normalizeSeenMap(written.data.seen_by);}
                     return true;
                 }
-                if(lastError&&!isSchemaCompatibilityError(lastError)){console.warn('رسید فایل در سرور ذخیره نشد:',lastError);return false;}
-                // A conditional update lost a race; fetch and merge latest data on next iteration.
+                // No matching row means updated_at CAS lost a race; reread and merge on next pass.
             }
-            console.warn('رسید فایل فقط به‌صورت محلی ثبت شد؛ ستون قابل‌ذخیره در جدول tasks در دسترس نیست.');return false;
+            throw new Error('ذخیره رسید فایل پس از چند تلاش ناموفق بود (تعارض به‌روزرسانی).');
         }
+        function refreshUnreadPopupCounts(){
+            const modal=document.getElementById('unread-warning-modal');
+            if(!modal||!modal.classList.contains('is-visible')||!currentUser)return;
+            const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
+            const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
+            const text=document.getElementById('unread-warning-text');
+            if(text)text.textContent=`شما ${unreadTasks} پیام دیده‌نشده و ${unreadFiles} فایل بازنشده دارید`;
+        }
+        
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
         function getSeenMap(t){const merged={...normalizeSeenMap(t.seen_by)},local=readStore(SEEN_KEY)[String(t.id)]||{};for(const [key,stamp] of Object.entries(local))if(!merged[key]||Date.parse(stamp)>=Date.parse(merged[key]))merged[key]=stamp;return merged}
@@ -532,10 +527,29 @@
             const klass=unread?'unresolved':meta.updated_at&&((meta.updated_by===currentUser.key&&seenByOther)||isTaskSeen(t))?'resolved':meta.updated_at?'pending':'neutral';
             const badge=line.querySelector('.receipt-badge');if(badge){badge.className='receipt-badge '+klass;badge.textContent=text;}
         }
-        function markFileRead(id,index,event){
+        async function markFileRead(id,index,event){
+            // preserveDefault keeps the anchor's normal navigation; propagation still matches task receipts.
+            if(event)event.stopPropagation();
             const task=tasks.find(x=>String(x.id)===String(id)),file=task&&Array.isArray(task.files)?task.files[index]:null;
-            if(currentUser&&file){persistFileRead(id,file,index).then(ok=>{if(!ok)console.warn('رسید فایل برای این دستگاه به‌صورت محلی نگهداری شد.');});}
-            markTaskSeen(id,event,{preserveDefault:true});
+            if(!currentUser||!file)return;
+            const stable=getFileSeenKey(id,file), stamp=new Date().toISOString();
+            saveLocalFileReceipt(id,stable,stamp); // optimistic until server confirms; fallback retained only on failure
+            const meta=getTaskMeta(task);
+            try{
+                const saved=await persistFileRead(id,file,index,stamp);
+                if(!saved)throw new Error('سرور رسید را ذخیره نکرد.');
+                clearLocalFileReceipt(stable);
+                const fresh=await db.from('tasks').select('*').order('order_index',{ascending:true});
+                if(fresh.error)throw fresh.error;
+                tasks=Array.isArray(fresh.data)?fresh.data:tasks;
+                renderTable();refreshUnreadPopupCounts();
+            }catch(err){
+                // If the combined write failed, preserve the usual task-seen semantics locally too.
+                if(meta.updated_at)saveLocalTaskReceipt(task,meta);
+                console.error('ذخیره رسید فایل/مشاهده در سرور ناموفق بود؛ رسید در این مرورگر نگه داشته شد.',err);
+                const latest=tasks.find(x=>String(x.id)===String(id))||task;
+                updateReceiptBadge(latest);refreshUnreadPopupCounts();
+            }
         }
         async function updateTask(id,patch){
             if(!db)return {error:{message:'اتصال پایگاه داده برقرار نیست.'}};
@@ -671,7 +685,7 @@
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
-                                        <a href="${f.url}" target="_blank" rel="noopener" onclick="markFileRead('${t.id}', ${fIdx}, event)" class="file-link">📎 ${f.name}</a>
+                                        <a href="${f.url}" target="_blank" rel="noopener" class="file-link ${isFileRead(t,fIdx,f)?'file-read':'file-unread'}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${f.name}</a>
                                         ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
                                     </div>
                                 `).join('') : ''}
