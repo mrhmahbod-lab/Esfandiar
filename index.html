@@ -117,6 +117,80 @@
         .unread-warning-close{margin-top:18px;background:#1e3a8a;color:white;border:0;border-radius:8px;padding:10px 28px;font-weight:700;cursor:pointer}
         @keyframes warning-blink{to{visibility:hidden}}
         @keyframes warning-card-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    
+        /* لایهٔ ظاهری حرفه‌ای؛ منطق و انیمیشن‌های هشدار موجود حفظ شده‌اند. */
+        :root {
+            --primary: #1e3a8a;
+            --primary-hover: #172554;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --border: #cbd5e1;
+            --text: #0f172a;
+            --muted-bg: #e9eff6;
+            --success: #15803d;
+            --danger: #b91c1c;
+            --surface-shadow: 0 10px 28px rgba(15, 23, 42, .07), 0 2px 6px rgba(15, 23, 42, .04);
+        }
+        body { font-family: Vazirmatn, Tahoma, system-ui, sans-serif; background: radial-gradient(ellipse at 50% -15%, #e0eaff 0, var(--bg) 48%); padding: 20px; }
+        .header-card { position: relative; overflow: hidden; background: linear-gradient(115deg,#fff 0%,#f8faff 72%,#edf3ff 100%); border-radius: 18px; padding: 20px 26px; box-shadow: var(--surface-shadow); border-color: #d7e0ec; }
+        .header-card:before { content:""; position:absolute; inset:0 0 0 auto; width:5px; background:linear-gradient(180deg,#3b82f6,var(--primary)); }
+        .header-brand, .user-panel { position:relative; z-index:1; }
+        .header-brand img { filter: drop-shadow(0 3px 5px rgba(30,58,138,.12)); }
+        .header-title h1 { font-size:1.35rem; letter-spacing:-.25px; }
+        .header-title p { line-height:1.8; }
+        .badge { background:#e8efff; color:#1e3a8a; border:1px solid #d5e2ff; box-shadow:0 2px 5px rgba(30,58,138,.05); }
+        .btn { border-radius:9px; box-shadow:0 2px 4px rgba(15,23,42,.08); transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease, filter .18s ease; }
+        .btn:hover { transform:translateY(-1px); box-shadow:0 5px 12px rgba(15,23,42,.14); filter:brightness(1.03); }
+        .btn:active { transform:translateY(0); }
+        .btn-primary { background:linear-gradient(135deg,#1e3a8a,#2563eb); }
+        .btn-success { background:linear-gradient(135deg,#15803d,#16a34a); }
+        .btn-danger { background:linear-gradient(135deg,#b91c1c,#dc2626); }
+        .form-control, .shamsi-group select { border-color:#cbd5e1; border-radius:9px; transition:border-color .18s ease, box-shadow .18s ease; }
+        .form-control:focus, .shamsi-group select:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.14); }
+        .status-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:-5px 0 18px; }
+        .summary-card { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:78px; padding:14px 18px; background:var(--card); border:1px solid #dbe3ed; border-radius:14px; box-shadow:0 5px 16px rgba(15,23,42,.045); }
+        .summary-label { color:#64748b; font-size:.82rem; font-weight:700; }
+        .summary-value { color:var(--primary); font-size:1.4rem; font-weight:800; direction:ltr; }
+        .summary-card.unread-summary .summary-value { color:#b91c1c; }
+        .summary-mark { display:grid; place-items:center; width:36px; height:36px; flex:none; border-radius:11px; color:#1e40af; background:#eff6ff; font-size:1rem; }
+        .unread-summary .summary-mark { color:#b91c1c; background:#fff1f2; }
+        .table-container { border-radius:16px; box-shadow:var(--surface-shadow); border-color:#d7e0ec; scrollbar-width:thin; scrollbar-color:#94a3b8 #f1f5f9; }
+        .table-container::-webkit-scrollbar { height:10px; }
+        .table-container::-webkit-scrollbar-thumb { background:#94a3b8; border-radius:9px; border:2px solid #f1f5f9; }
+        table { font-size:.87rem; }
+        th { background:linear-gradient(180deg,#f8fafc,#eaf0f7); color:#26364b; padding:14px 15px; border-bottom:2px solid #cbd5e1; }
+        td { padding:12px 14px; border-bottom:1px solid #e7edf4; line-height:1.75; transition:background-color .16s ease; }
+        tbody tr:nth-child(even) td { background-color:#fbfdff; }
+        tbody tr:hover td { background-color:#f0f6ff; }
+        .cell-readonly { background-color:#edf2f7 !important; }
+        .modal, #unread-warning-modal { backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+        .modal { background:rgba(15,23,42,.58); }
+        .modal-content, .login-box { border:1px solid rgba(203,213,225,.85); box-shadow:0 24px 64px rgba(15,23,42,.22); border-radius:18px; }
+        .modal-content { padding:26px; }
+        .login-box { padding:34px; }
+        .login-box h2 { letter-spacing:-.2px; }
+        .progress-ring .meter { stroke:#2563eb; }
+        .file-link { border-radius:7px; }
+        @media(max-width:760px) {
+            body { padding:12px; }
+            .header-card { padding:16px; }
+            .status-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-bottom:14px; }
+            .summary-card { min-height:68px; padding:11px 13px; }
+            .summary-label { font-size:.76rem; }
+            .summary-value { font-size:1.22rem; }
+            .table-container { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+            table { min-width:1120px; }
+        }
+        @media(max-width:420px) {
+            .header-brand { gap:10px; }
+            .header-brand img { height:42px; max-width:90px; }
+            .header-title h1 { font-size:1.04rem; }
+            .header-title p { font-size:.73rem; }
+            .user-panel { width:100%; justify-content:flex-start; flex-wrap:wrap; }
+            .summary-card { gap:7px; padding:10px; }
+            .summary-mark { width:30px; height:30px; }
+            .summary-label { font-size:.7rem; }
+        }
     </style>
 </head>
 <body>
@@ -135,6 +209,13 @@
             <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="logout()">خروج</button>
         </div>
     </header>
+
+    <section class="status-summary" aria-label="خلاصه وضعیت فعالیت‌ها">
+        <div class="summary-card"><span class="summary-label">کل فعالیت‌ها</span><span class="summary-mark" aria-hidden="true">▤</span><strong class="summary-value" id="summary-total">۰</strong></div>
+        <div class="summary-card"><span class="summary-label">تکمیل‌شده</span><span class="summary-mark" aria-hidden="true">✓</span><strong class="summary-value" id="summary-completed">۰</strong></div>
+        <div class="summary-card"><span class="summary-label">میانگین پیشرفت</span><span class="summary-mark" aria-hidden="true">◔</span><strong class="summary-value" id="summary-average">۰٪</strong></div>
+        <div class="summary-card unread-summary"><span class="summary-label">خوانده‌نشده</span><span class="summary-mark" aria-hidden="true">!</span><strong class="summary-value" id="summary-unread">۰</strong></div>
+    </section>
 
     <div class="table-container">
         <table>
@@ -609,10 +690,26 @@
             try{const draftId=await ensureNewTaskDraft();for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));newTaskUploaded.push(uploaded);const {error}=await updateTask(draftId,{files:[...newTaskUploaded]});if(error)throw error;uploadWidget(widget,'success',100,'آپلود شد ✅ — فایل در پایگاه داده ثبت شد');}}
             catch(err){uploadWidget(widget,'error',0,`خطا: ${escapeHtml(err.message||err)}`);console.error(err)}finally{input.disabled=false}}
 
+        function updateStatusSummary() {
+            const list = Array.isArray(tasks) ? tasks : [];
+            const total = list.length;
+            const completed = list.filter(t => Number(t.progress) >= 100).length;
+            const average = total ? Math.round(list.reduce((sum, t) => sum + Math.max(0, Math.min(100, Number(t.progress) || 0)), 0) / total) : 0;
+            const unread = list.filter(t => {
+                const meta = getTaskMeta(t);
+                return !!(meta.updated_at && meta.updated_by && currentUser && meta.updated_by !== currentUser.key && !isTaskSeen(t));
+            }).length;
+            document.getElementById('summary-total').textContent = total.toLocaleString('fa-IR');
+            document.getElementById('summary-completed').textContent = completed.toLocaleString('fa-IR');
+            document.getElementById('summary-average').textContent = average.toLocaleString('fa-IR') + '٪';
+            document.getElementById('summary-unread').textContent = unread.toLocaleString('fa-IR');
+        }
+
         function renderTable() {
             const tbody = document.getElementById('tasks-body');
             if (tasks.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#64748b;">هیچ فعالیتی ثبت نشده است.</td></tr>';
+                updateStatusSummary();
                 return;
             }
 
@@ -711,6 +808,7 @@
                     </tr>
                 `;
             }).join('');
+            updateStatusSummary();
         }
 
         async function saveTaskRow(id) {
