@@ -55,13 +55,16 @@
 
         .shamsi-group { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 88px; margin-inline: auto; }
         .shamsi-group select { width: 100%; min-width: 0; padding: 5px 3px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.78rem; background: #fff; }
-        td.actions-cell, td.details-cell { vertical-align: stretch; }
-        td.actions-cell { height: 100%; }
-        .action-cell-content { display: flex; flex-direction: column; height: 100%; min-height: 150px; gap: 6px; }
-        .details-cell-content { display: flex; flex-direction: column; height: 100%; min-height: 150px; gap: 6px; }
+        td.actions-cell, td.details-cell { height: 100%; vertical-align: top; padding: 0; }
+        .action-cell-content, .details-cell-content {
+            display: flex; flex-direction: column; height: 100%; min-height: 150px;
+            box-sizing: border-box; padding: 10px 12px; gap: 6px;
+        }
         .action-cell-content .progress-box { flex: 0 0 auto; }
-        .action-cell-content textarea { flex: 1 1 auto; width: 100%; min-height: 110px; height: 100%; max-height: none; overflow-y: auto; resize: vertical; box-sizing: border-box; }
-        .details-cell-content > textarea { flex: 1 1 auto; width: 100%; min-height: 80px; max-height: 220px; height: 100%; overflow-y: auto; resize: vertical; }
+        td.actions-cell textarea.form-control, td.details-cell textarea.form-control {
+            flex: 1 1 auto; width: 100%; height: 100%; min-height: 120px;
+            max-height: none; overflow-y: auto; resize: vertical; box-sizing: border-box;
+        }
         .action-cell-content .progress-slider { min-height: 24px; }
 
         .btn {
@@ -78,7 +81,7 @@
             background: var(--card); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             border: 1px solid var(--border); overflow-x: auto; margin-bottom: 24px;
         }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; text-align: right; }
+        table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; text-align: right; }
         th { background: #f1f5f9; color: #334155; padding: 12px 14px; font-weight: 700; border-bottom: 2px solid var(--border); white-space: nowrap; }
         td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
         tr:hover td { background-color: #f8fafc; }
@@ -708,11 +711,41 @@
             document.getElementById('summary-unread').textContent = unread.toLocaleString('fa-IR');
         }
 
+        function adjustActionHeights() {
+            const tbody = document.getElementById('tasks-body');
+            if (!tbody) return;
+            tbody.querySelectorAll('tr').forEach(row => {
+                const rowHeight = row.getBoundingClientRect().height;
+                if (!rowHeight) return;
+                [['.actions-cell', '.action-cell-content'], ['.details-cell', '.details-cell-content']].forEach(([cellSelector, wrapperSelector]) => {
+                    const cell = row.querySelector(cellSelector);
+                    const wrapper = cell && cell.querySelector(wrapperSelector);
+                    if (!cell || !wrapper) return;
+                    wrapper.style.height = `${rowHeight}px`;
+                    wrapper.style.minHeight = `${rowHeight}px`;
+                    const textarea = wrapper.querySelector('textarea.form-control');
+                    if (!textarea) return;
+                    const wrapperStyle = getComputedStyle(wrapper);
+                    const verticalPadding = parseFloat(wrapperStyle.paddingTop) + parseFloat(wrapperStyle.paddingBottom);
+                    const gap = parseFloat(wrapperStyle.rowGap || wrapperStyle.gap) || 0;
+                    let reserved = verticalPadding;
+                    Array.from(wrapper.children).filter(child => child !== textarea).forEach(child => {
+                        const style = getComputedStyle(child);
+                        reserved += child.getBoundingClientRect().height + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0) + gap;
+                    });
+                    const available = Math.max(120, rowHeight - reserved);
+                    textarea.style.height = `${available}px`;
+                    textarea.style.minHeight = '120px';
+                });
+            });
+        }
+
         function renderTable() {
             const tbody = document.getElementById('tasks-body');
             if (tasks.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#64748b;">هیچ فعالیتی ثبت نشده است.</td></tr>';
                 updateStatusSummary();
+                adjustActionHeights();
                 return;
             }
 
@@ -813,6 +846,7 @@
                 `;
             }).join('');
             updateStatusSummary();
+            adjustActionHeights();
         }
 
         async function saveTaskRow(id) {
@@ -940,6 +974,9 @@
                 alert('خطا در حذف فعالیت: ' + (err.message || err));
             }
         }
+
+        window.addEventListener('load', adjustActionHeights);
+        window.addEventListener('resize', () => requestAnimationFrame(adjustActionHeights));
 
         // بررسی وضعیت ورود قبلی کاربر
         window.addEventListener('DOMContentLoaded', () => {
