@@ -85,7 +85,7 @@
         .progress-slider { flex-grow: 1; }
         .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
         .file-link.file-read{background:#fef9c3;color:#15803d}.file-link.file-unread{background:#000;color:#ef4444;animation:warning-blink .8s steps(2,start) infinite}
-        .task-text-unread{background:#000 !important;color:#ef4444 !important;animation:warning-blink .8s steps(2,start) infinite;padding:4px 8px;border-radius:4px;display:inline-block}
+        .task-text-unread { background: #000 !important; color: #ef4444 !important; animation: warning-blink .8s steps(2,start) infinite; padding: 4px 8px; border-radius: 4px; display: inline-block; }
 
         .modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.5);
@@ -102,6 +102,7 @@
         @keyframes ring-pulse{0%{transform:scale(.8);opacity:.8}100%{transform:scale(1.8);opacity:0}}
         .row-unread td{background:#fff7f5!important}.row-unread{box-shadow:inset -4px 0 #ef4444,0 0 13px rgba(239,68,68,.10)}
         .receipt-badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:5px 9px;margin:2px 0;font-size:.75rem;line-height:1.6;font-weight:700;background:#fff1f2;color:#be123c;white-space:normal;max-width:100%;width:fit-content;overflow-wrap:anywhere}
+        .receipt-badge.unresolved { background: #000 !important; color: #ef4444 !important; border: 1px solid #020617 !important; animation: warning-blink .8s steps(2,start) infinite; }
         .receipt-badge.resolved{background:#fef9c3;color:#15803d;border:1px solid #facc15;border-radius:8px}.receipt-badge.unresolved,.receipt-badge.pending{background:#0f172a;color:#f87171;border:1px solid #020617;border-radius:8px}.receipt-badge.neutral{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px}.receipt-line{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-top:7px;min-width:0}.receipt-action{display:block;align-self:flex-start;max-width:100%;white-space:normal;line-height:1.6;margin-right:0!important;overflow-wrap:anywhere}
         .progress-ring{width:40px;height:40px;display:inline-grid;place-items:center;position:relative;vertical-align:middle}.progress-ring svg{width:40px;height:40px;transform:rotate(-90deg)}.progress-ring circle{fill:none;stroke:#dbeafe;stroke-width:4}.progress-ring .meter{stroke:#2563eb;stroke-linecap:round;stroke-dasharray:100.53;transition:stroke-dashoffset .3s}.progress-ring b{position:absolute;font-size:9px;direction:ltr}
         .file-link{word-break:break-all}
@@ -112,6 +113,7 @@
         .unread-warning-card{width:min(560px,100%);text-align:center;background:#fff;border:2px solid #f59e0b;border-radius:20px;padding:32px 24px;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:warning-card-in .35s ease-out}
         .unread-warning-icon{display:block;font-size:58px;line-height:1.2;margin-bottom:14px;animation:warning-blink .8s steps(2,start) infinite}
         .unread-warning-message{font-size:1.25rem;line-height:2;font-weight:800;color:#172554}
+        .unread-warning-count{display:inline-block}.unread-warning-count.has-unread{animation:warning-blink .8s steps(2,start) infinite}
         .unread-warning-close{margin-top:18px;background:#1e3a8a;color:white;border:0;border-radius:8px;padding:10px 28px;font-weight:700;cursor:pointer}
         @keyframes warning-blink{to{visibility:hidden}}
         @keyframes warning-card-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -375,7 +377,7 @@
             const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
             const modal=document.getElementById('unread-warning-modal'), text=document.getElementById('unread-warning-text');
-            if(text)text.textContent=`شما ${unreadTasks} پیام دیده‌نشده و ${unreadFiles} فایل بازنشده دارید`;
+            if(text)text.innerHTML=`شما <span class="unread-warning-count ${unreadTasks>0?'has-unread':''}">${unreadTasks}</span> پیام دیده‌نشده و <span class="unread-warning-count ${unreadFiles>0?'has-unread':''}">${unreadFiles}</span> فایل بازنشده دارید`;
             if(modal)modal.classList.add('is-visible');
             if(errorMessage)console.warn('وضعیت هشدار از داده‌های در دسترس نمایش داده شد:',errorMessage);
         }
@@ -449,7 +451,7 @@
             const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
             const text=document.getElementById('unread-warning-text');
-            if(text)text.textContent=`شما ${unreadTasks} پیام دیده‌نشده و ${unreadFiles} فایل بازنشده دارید`;
+            if(text)text.innerHTML=`شما <span class="unread-warning-count ${unreadTasks>0?'has-unread':''}">${unreadTasks}</span> پیام دیده‌نشده و <span class="unread-warning-count ${unreadFiles>0?'has-unread':''}">${unreadFiles}</span> فایل بازنشده دارید`;
         }
         
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
@@ -643,7 +645,7 @@
                                 ` : ''}
                             </div>
                         </td>
-                        <td class="cell-readonly">${unread ? `<span class="task-text-unread">${t.description || '-'}</span>` : (t.description || '-')}</td>
+                        <td class="cell-readonly"><span class="${unread ? 'task-text-unread' : ''}">${t.description || '-'}</span></td>
                         <td class="cell-readonly"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
