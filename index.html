@@ -90,13 +90,6 @@
             display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
         }
         .modal-content { background: white; border-radius: 12px; padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-        #unread-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 2000; padding: 16px; background: rgba(15,23,42,.72); }
-        #unread-modal.is-open { display: flex; }
-        .unread-dialog { width: 100%; max-width: 460px; padding: 28px 24px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
-        .unread-warning { display: block; margin: 0 auto 12px; font-size: 3rem; line-height: 1.2; animation: warning-blink 1s steps(2,start) infinite; }
-        @keyframes warning-blink { to { visibility: hidden; } }
-        .unread-message { margin: 0 0 22px; color: #0f172a; font-size: 1.08rem; line-height: 1.9; font-weight: 700; }
-        .unread-close { min-width: 120px; }
 
         .upload-status{display:inline-flex;align-items:center;gap:8px;margin:6px 0;padding:6px 10px;border-radius:24px;background:#eff6ff;color:#1e40af;font-size:.78rem;font-weight:700;min-height:34px}
         .upload-status[hidden]{display:none}.upload-status.success{background:#ecfdf5;color:#047857}.upload-status.error{background:#fef2f2;color:#b91c1c}
@@ -111,6 +104,15 @@
         .progress-ring{width:40px;height:40px;display:inline-grid;place-items:center;position:relative;vertical-align:middle}.progress-ring svg{width:40px;height:40px;transform:rotate(-90deg)}.progress-ring circle{fill:none;stroke:#dbeafe;stroke-width:4}.progress-ring .meter{stroke:#2563eb;stroke-linecap:round;stroke-dasharray:100.53;transition:stroke-dashoffset .3s}.progress-ring b{position:absolute;font-size:9px;direction:ltr}
         .file-link{word-break:break-all}
         @media(max-width:700px){body{padding:8px}.header-card{padding:12px}.upload-status{font-size:.7rem}.receipt-line{align-items:stretch;gap:6px}.receipt-line .receipt-badge{align-self:stretch;width:100%;font-size:.72rem;padding:6px 9px;white-space:normal;overflow-wrap:anywhere}.receipt-line .receipt-action{align-self:stretch;width:100%;padding:7px 8px}}
+
+        #unread-warning-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.72)}
+        #unread-warning-modal.is-visible{display:flex}
+        .unread-warning-card{width:min(560px,100%);text-align:center;background:#fff;border:2px solid #f59e0b;border-radius:20px;padding:32px 24px;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:warning-card-in .35s ease-out}
+        .unread-warning-icon{display:block;font-size:58px;line-height:1.2;margin-bottom:14px;animation:warning-blink .8s steps(2,start) infinite}
+        .unread-warning-message{font-size:1.25rem;line-height:2;font-weight:800;color:#172554}
+        .unread-warning-close{margin-top:18px;background:#1e3a8a;color:white;border:0;border-radius:8px;padding:10px 28px;font-weight:700;cursor:pointer}
+        @keyframes warning-blink{to{visibility:hidden}}
+        @keyframes warning-card-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
     </style>
 </head>
 <body>
@@ -178,14 +180,6 @@
         </div>
     </div>
 
-    <div id="unread-modal" aria-hidden="true">
-        <section class="unread-dialog" role="dialog" aria-modal="true" aria-labelledby="unread-message">
-            <span class="unread-warning" aria-hidden="true">⚠️</span>
-            <p id="unread-message" class="unread-message"></p>
-            <button type="button" class="btn btn-primary unread-close" onclick="closeUnreadPopup()">متوجه شدم</button>
-        </section>
-    </div>
-
     <!-- فرم ثبت تسک جدید -->
     <div id="task-modal" class="modal">
         <div class="modal-content">
@@ -239,6 +233,14 @@
         </div>
     </div>
 
+
+    <div id="unread-warning-modal" role="dialog" aria-modal="true" aria-labelledby="unread-warning-text">
+        <div class="unread-warning-card">
+            <span class="unread-warning-icon" aria-hidden="true">⚠️</span>
+            <div id="unread-warning-text" class="unread-warning-message"></div>
+            <button type="button" class="unread-warning-close" onclick="closeUnreadPopup()">متوجه شدم</button>
+        </div>
+    </div>
     <script>
         const SUPABASE_URL = "https://bdieqelvtlcwlgjgylmb.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkaWVxZWx2dGxjd2xnamd5bG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzM4NzMsImV4cCI6MjEwOTYwOTg3M30.xtOnd9g7uBYSVvbRpYqXzp9zY0sgyKqLan_pceNTfpE";
@@ -370,37 +372,89 @@
             loginAlertShown = true;
             const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
-            const modal=document.getElementById('unread-modal');
-            const message=document.getElementById('unread-message');
-            if(message) message.textContent=`شما ${unreadTasks} پیام دیده‌نشده و ${unreadFiles} فایل بازنشده دارید`;
-            if(modal){modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');}
+            const modal=document.getElementById('unread-warning-modal'), text=document.getElementById('unread-warning-text');
+            if(text)text.textContent=`شما ${unreadTasks} پیام دیده‌نشده و ${unreadFiles} فایل بازنشده دارید`;
+            if(modal)modal.classList.add('is-visible');
+            if(errorMessage)console.warn('وضعیت هشدار از داده‌های در دسترس نمایش داده شد:',errorMessage);
         }
-        function closeUnreadPopup(){
-            const modal=document.getElementById('unread-modal');
-            if(modal){modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');}
-        }
+        function closeUnreadPopup(){const modal=document.getElementById('unread-warning-modal');if(modal)modal.classList.remove('is-visible');}
         function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(_){return {}}}
         function writeStore(key,obj){try{localStorage.setItem(key,JSON.stringify(obj))}catch(e){console.warn('localStorage unavailable',e)}}
-        function getFileIdentity(file){return String(file?.path||file?.url||file?.name||'').trim()}
         function getFileSeenKey(taskId,file){
-            const identity=getFileIdentity(file);
+            // Stable identity order: storage URL, storage path, then filename; never rely on array position.
+            const identity=String(file?.url||file?.path||file?.name||'').trim();
             return `${String(taskId)}:file:${encodeURIComponent(identity||'unknown')}`;
+        }
+        function normalizeFileSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
+        const FILE_SEEN_NAMESPACE='__file_seen_v1';
+        function getServerFileSeen(t){
+            const direct=normalizeFileSeenMap(t.file_seen);
+            const shared=normalizeSeenMap(t.seen_by);
+            const nested=normalizeFileSeenMap(shared[FILE_SEEN_NAMESPACE]);
+            return {...nested,...direct};
         }
         function isFileRead(taskId,index,file){
             if(!currentUser)return false;
-            const store=readStore(FILE_SEEN_KEY), stable=getFileSeenKey(taskId,file);
-            const candidates=[`${taskId}:${index}`];
-            // Older versions used URL before path for the stable identity; preserve those receipts.
-            if(file?.url){const oldUrlKey=`${String(taskId)}:file:${encodeURIComponent(String(file.url).trim())}`;if(oldUrlKey!==stable)candidates.push(oldUrlKey)}
-            for(const oldKey of candidates){
-                const legacy=store[oldKey];
-                if(legacy&&typeof legacy==='object'&&legacy[currentUser.key]){
-                    store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
-                    store[stable][currentUser.key]=legacy[currentUser.key];writeStore(FILE_SEEN_KEY,store);return true;
-                }
+            const store=readStore(FILE_SEEN_KEY), stable=getFileSeenKey(taskId,file), legacy=store[`${taskId}:${index}`];
+            const local=store[stable], remote=getServerFileSeen(tasks.find(t=>String(t.id)===String(taskId))||{});
+            const remoteEntry=remote[stable]||remote[`${taskId}:${index}`]||remote[`index:${index}`];
+            if((local&&typeof local==='object'&&local[currentUser.key])||(remoteEntry&&typeof remoteEntry==='object'&&remoteEntry[currentUser.key]))return true;
+            // Migrate old browser index-based receipts to the stable identity key without dropping them.
+            if(legacy&&typeof legacy==='object'&&legacy[currentUser.key]){
+                store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
+                store[stable][currentUser.key]=legacy[currentUser.key];writeStore(FILE_SEEN_KEY,store);return true;
             }
-            const entry=store[stable];
-            return !!(entry&&typeof entry==='object'&&entry[currentUser.key]);
+            return false;
+        }
+        async function persistFileRead(taskId,file,index){
+            const stable=getFileSeenKey(taskId,file), local=readStore(FILE_SEEN_KEY);
+            const old=local[`${taskId}:${index}`];local[stable]=local[stable]&&typeof local[stable]==='object'?local[stable]:{};
+            local[stable][currentUser.key]=new Date().toISOString();
+            if(old&&typeof old==='object'&&old[currentUser.key])local[stable][currentUser.key]=old[currentUser.key];
+            writeStore(FILE_SEEN_KEY,local);
+            if(!db||!currentUser)return false;
+            const schemaErr=e=>isSchemaCompatibilityError(e)&&/file_seen|column|schema cache|does not exist|unknown field|PGRST204/i.test(String(e?.message||e));
+            for(let attempt=0;attempt<4;attempt++){
+                const fetched=await db.from('tasks').select('*').eq('id',taskId).maybeSingle();
+                if(fetched.error){console.warn('دریافت وضعیت رسید فایل از سرور ناموفق بود:',fetched.error);return false;}
+                if(!fetched.data)return false;
+                const row=fetched.data, direct=normalizeFileSeenMap(row.file_seen), shared=normalizeSeenMap(row.seen_by);
+                const merged={...normalizeFileSeenMap(shared[FILE_SEEN_NAMESPACE]),...direct};
+                merged[stable]=merged[stable]&&typeof merged[stable]==='object'?merged[stable]:{};
+                merged[stable][currentUser.key]=local[stable][currentUser.key];
+                const variants=[merged,JSON.stringify(merged)];let stored=false, missingColumn=false,lastError=null;
+                // Preferred persistence: dedicated tasks.file_seen JSON/JSONB column.
+                for(const value of variants){
+                    let q=db.from('tasks').update({file_seen:value}).eq('id',taskId);
+                    if(row.updated_at)q=q.eq('updated_at',row.updated_at);
+                    const result=await q.select('*').maybeSingle();
+                    if(!result.error&&result.data){Object.assign(row,result.data);stored=true;break;}
+                    lastError=result.error;
+                    if(schemaErr(lastError)){missingColumn=true;break;}
+                    if(!isSchemaCompatibilityError(lastError)){console.warn('ثبت رسید فایل در ستون file_seen ناموفق بود:',lastError);return false;}
+                }
+                // Any schema/type incompatibility on the optional column triggers the existing-column fallback.
+                if(!stored&&lastError&&isSchemaCompatibilityError(lastError))missingColumn=true;
+                // Backward-compatible fallback: retain per-file receipts in the existing seen_by JSON map.
+                if(!stored&&missingColumn){
+                    const fallback={...shared,[FILE_SEEN_NAMESPACE]:merged};
+                    for(const value of [fallback,JSON.stringify(fallback)]){
+                        let q=db.from('tasks').update({seen_by:value}).eq('id',taskId);
+                        if(row.updated_at)q=q.eq('updated_at',row.updated_at);
+                        const result=await q.select('*').maybeSingle();
+                        if(!result.error&&result.data){Object.assign(row,result.data);stored=true;break;}
+                        lastError=result.error;
+                        if(!isSchemaCompatibilityError(lastError)){console.warn('ثبت رسید فایل در seen_by ناموفق بود:',lastError);return false;}
+                    }
+                }
+                if(stored){
+                    const task=tasks.find(t=>String(t.id)===String(taskId));if(task){task.file_seen=normalizeFileSeenMap(row.file_seen);task.seen_by=normalizeSeenMap(row.seen_by);}
+                    return true;
+                }
+                if(lastError&&!isSchemaCompatibilityError(lastError)){console.warn('رسید فایل در سرور ذخیره نشد:',lastError);return false;}
+                // A conditional update lost a race; fetch and merge latest data on next iteration.
+            }
+            console.warn('رسید فایل فقط به‌صورت محلی ثبت شد؛ ستون قابل‌ذخیره در جدول tasks در دسترس نیست.');return false;
         }
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
@@ -480,7 +534,7 @@
         }
         function markFileRead(id,index,event){
             const task=tasks.find(x=>String(x.id)===String(id)),file=task&&Array.isArray(task.files)?task.files[index]:null;
-            if(currentUser&&file){const d=readStore(FILE_SEEN_KEY),key=getFileSeenKey(id,file);d[key]=d[key]&&typeof d[key]==='object'?d[key]:{};d[key][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);}
+            if(currentUser&&file){persistFileRead(id,file,index).then(ok=>{if(!ok)console.warn('رسید فایل برای این دستگاه به‌صورت محلی نگهداری شد.');});}
             markTaskSeen(id,event,{preserveDefault:true});
         }
         async function updateTask(id,patch){
