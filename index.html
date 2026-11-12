@@ -150,7 +150,7 @@
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
-            <p style="font-size: 0.78rem; color: #475569; margin-bottom: 12px;">برای ورود همه کاربران، انتخاب نام کاربری و وارد کردن رمز عبور الزامی است.</p>
+            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود کاربران عادی بدون رمز عبور جهت تسهیل کارگاهی است.</p>
             <div class="form-group">
                 <label>انتخاب کاربر:</label>
                 <select id="login-user-select" class="form-control" onchange="togglePasswordField()">
@@ -163,8 +163,8 @@
                 </select>
             </div>
             <div class="form-group" id="password-group" style="display: none;">
-                <label for="login-password">رمز عبور:</label>
-                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور..." autocomplete="current-password" required>
+                <label>رمز عبور مدیر:</label>
+                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور...">
             </div>
             <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none;"></p>
             <button type="button" class="btn btn-primary" onclick="submitLogin()">ورود</button>
@@ -183,7 +183,7 @@
                 <div class="form-group">
                     <label>پیگیری‌کننده:</label>
                     <select id="task-assignee" class="form-control" required>
-                        <option value="user1">کاربر یک (رئیس کارگاه)</option>
+                        <option value="user1">مهندس هاشمی (رئیس کارگاه)</option>
                         <option value="user2">کاربر دو (مهندس اجرا)</option>
                         <option value="user3">کاربر سه (دفتر فنی)</option>
                         <option value="user4">کاربر چهار (ایمنی)</option>
@@ -243,16 +243,6 @@
             'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' }
         };
 
-        // یادآوری امنیتی: رمزهای داخل فایل HTML سمت مرورگر قابل مشاهده‌اند.
-        // برای امنیت واقعی، احراز هویت را به Supabase Auth/RLS منتقل کنید.
-        const LOGIN_PASSWORDS = Object.freeze({
-            mahbod: '@Aida1387@',
-            user1: 'u1_123456',
-            user2: 'u2_123456',
-            user3: 'u3_123456',
-            user4: 'u4_123456'
-        });
-
         const MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
         let currentUser = null;
         let tasks = [];
@@ -288,14 +278,7 @@
 
         function togglePasswordField() {
             const val = document.getElementById('login-user-select').value;
-            const group = document.getElementById('password-group');
-            // هر کاربر انتخاب‌شده، از جمله مدیر، باید رمز وارد کند.
-            group.style.display = val ? 'block' : 'none';
-            document.getElementById('login-password').value = '';
-            const err = document.getElementById('login-error');
-            err.style.display = 'none';
-            err.innerText = '';
-            if (val) document.getElementById('login-password').focus();
+            document.getElementById('password-group').style.display = (val === 'mahbod') ? 'block' : 'none';
         }
 
         function submitLogin() {
@@ -303,21 +286,19 @@
             const pass = document.getElementById('login-password').value;
             const err = document.getElementById('login-error');
 
-            if (!val || !USERS[val]) {
+            if (!val) {
                 err.innerText = 'لطفاً کاربر را انتخاب کنید.';
                 err.style.display = 'block';
                 return;
             }
-            if (!pass || pass !== LOGIN_PASSWORDS[val]) {
-                err.innerText = 'نام کاربری یا رمز عبور صحیح نیست.';
+            if (val === 'mahbod' && pass !== '@Aida1387@') {
+                err.innerText = 'رمز عبور مدیر صحیح نیست.';
                 err.style.display = 'block';
-                document.getElementById('login-password').focus();
                 return;
             }
 
             currentUser = { key: val, ...USERS[val] };
-            // نشست‌های قدیمیِ بدون احراز هویت معتبر نباید ورود را دور بزنند.
-            localStorage.removeItem('esfandiar_user');
+            localStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
             document.getElementById('login-modal').style.display = 'none';
             setupInterface();
             fetchTasks();startTaskSync();
@@ -402,15 +383,31 @@
                 updateReceiptBadge(t);return;
             }
             try{
-                const {data,error}=await db.rpc('record_task_receipt',{p_task_id:id,p_user_key:currentUser.key,p_expected_updated_at:meta.updated_at});
-                if(error)throw error;
-                const row=Array.isArray(data)?data[0]:data;
-                if(!row||!row.updated_at||!row.seen_by)throw new Error('پاسخ RPC فاقد رسید ذخیره‌شده است؛ migration/امضای record_task_receipt را بررسی کنید.');
-                t.seen_by=normalizeSeenMap(row.seen_by);t.updated_at=row.updated_at;t.updated_by=row.updated_by||meta.updated_by;
+                // Read the latest row, merge this user's receipt into its JSONB map, then write
+                // it directly. Conditional updated_at avoids replacing a newer task revision.
+                let saved=null,lastError=null;
+                for(let attempt=0;attempt<4;attempt++){
+                    const fetched=await db.from('tasks').select('*').eq('id',id).maybeSingle();
+                    if(fetched.error)throw fetched.error;
+                    if(!fetched.data)throw new Error('وظیفه در پایگاه داده پیدا نشد.');
+                    const latest=fetched.data, stamp=latest.updated_at||getTaskMeta(t).updated_at;
+                    if(!stamp)throw new Error('زمان آخرین تغییر وظیفه در دسترس نیست.');
+                    const seen=normalizeSeenMap(latest.seen_by);
+                    seen[currentUser.key]=stamp;
+                    let query=db.from('tasks').update({seen_by:seen}).eq('id',id);
+                    if(latest.updated_at)query=query.eq('updated_at',latest.updated_at);
+                    const written=await query.select('*').maybeSingle();
+                    if(written.error)throw written.error;
+                    if(written.data){saved=written.data;break;}
+                    lastError=new Error('وظیفه هم‌زمان تغییر کرد؛ بازخوانی و تلاش مجدد انجام می‌شود.');
+                }
+                if(!saved)throw lastError||new Error('ثبت رسید مشاهده انجام نشد.');
+                Object.assign(t,saved);t.seen_by=normalizeSeenMap(saved.seen_by);
+                if(saved.updated_at&&saved.updated_by){const all=readStore(META_KEY);all[String(id)]={updated_at:saved.updated_at,updated_by:saved.updated_by};writeStore(META_KEY,all);}
                 const rowEl=document.getElementById(`row-${id}`);if(rowEl){rowEl.classList.toggle('row-unread',!!(getTaskMeta(t).updated_by!==currentUser.key&&!isTaskSeen(t)));updateReceiptBadge(t);}
             }catch(err){
                 saveLocalTaskReceipt(t,meta);
-                console.warn('ثبت رسید در سرور ناموفق بود؛ رسید در این مرورگر به‌صورت محلی نگهداری شد. بررسی کنید تابع record_task_receipt با آرگومان‌های p_task_id، p_user_key و p_expected_updated_at در دسترس نقش کاربر باشد.',err);
+                console.warn('ثبت رسید مستقیم در جدول tasks ناموفق بود؛ رسید در این مرورگر به‌صورت محلی نگهداری شد.',err);
                 updateReceiptBadge(t);
             }
         }
@@ -712,13 +709,16 @@
             }
         }
 
-        // نشست قبلیِ ذخیره‌شده در مرورگر احراز هویت محسوب نمی‌شود؛ ورود با رمز لازم است.
+        // بررسی وضعیت ورود قبلی کاربر
         window.addEventListener('DOMContentLoaded', () => {
-            localStorage.removeItem('esfandiar_user');
-            document.getElementById('login-modal').style.display = 'flex';
-            document.getElementById('login-user-select').value = '';
-            document.getElementById('login-password').value = '';
-            togglePasswordField();
+            const saved = localStorage.getItem('esfandiar_user');
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                document.getElementById('login-modal').style.display = 'none';
+                setupInterface();
+                fetchTasks();
+                startTaskSync();
+            }
         });
     </script>
 </body>
