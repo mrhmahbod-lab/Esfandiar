@@ -56,9 +56,12 @@
         .shamsi-group { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 88px; margin-inline: auto; }
         .shamsi-group select { width: 100%; min-width: 0; padding: 5px 3px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.78rem; background: #fff; }
         td.actions-cell, td.details-cell { vertical-align: stretch; }
-        .action-cell-content, .details-cell-content { display: flex; flex-direction: column; height: 100%; min-height: 150px; gap: 6px; }
+        td.actions-cell { height: 100%; }
+        .action-cell-content { display: flex; flex-direction: column; height: 100%; min-height: 150px; gap: 6px; }
+        .details-cell-content { display: flex; flex-direction: column; height: 100%; min-height: 150px; gap: 6px; }
         .action-cell-content .progress-box { flex: 0 0 auto; }
-        .action-cell-content textarea, .details-cell-content > textarea { flex: 1 1 auto; width: 100%; min-height: 80px; max-height: 220px; height: 100%; overflow-y: auto; resize: vertical; }
+        .action-cell-content textarea { flex: 1 1 auto; width: 100%; min-height: 110px; height: 100%; max-height: none; overflow-y: auto; resize: vertical; box-sizing: border-box; }
+        .details-cell-content > textarea { flex: 1 1 auto; width: 100%; min-height: 80px; max-height: 220px; height: 100%; overflow-y: auto; resize: vertical; }
         .action-cell-content .progress-slider { min-height: 24px; }
 
         .btn {
@@ -75,7 +78,7 @@
             background: var(--card); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             border: 1px solid var(--border); overflow-x: auto; margin-bottom: 24px;
         }
-        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: right; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; text-align: right; }
         th { background: #f1f5f9; color: #334155; padding: 12px 14px; font-weight: 700; border-bottom: 2px solid var(--border); white-space: nowrap; }
         td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
         tr:hover td { background-color: #f8fafc; }
@@ -717,7 +720,8 @@
             tbody.innerHTML = tasks.map((t, idx) => {
                 // همه کاربران عادی امکان ویرایش ستون‌های اجرایی انتهایی را دارند.
                 const canEdit = isAdmin || currentUser.role === 'user';
-                const assigneeName = USERS[t.assignee]?.title || t.assignee;
+                const userObj = USERS[t.assignee];
+                const assigneeDisp = userObj ? `<span style="font-weight:700;font-size:0.82rem;white-space:nowrap;">${userObj.name}</span><span style="font-size:0.75rem;color:#475569;white-space:nowrap;">(${userObj.title})</span>` : `<span style="white-space:nowrap;">${t.assignee}</span>`;
                 const meta = getTaskMeta(t);
                 const unread = !!(meta.updated_at && meta.updated_by && meta.updated_by !== currentUser.key && !isTaskSeen(t));
                 const seenByOther = !!(meta.updated_at && meta.updated_by === currentUser.key && getSeenSummary(t));
@@ -743,7 +747,7 @@
                             </div>
                         </td>
                         <td class="cell-readonly"><span class="${unread ? 'task-text-unread' : ''}">${t.description || '-'}</span></td>
-                        <td class="cell-readonly"><span class="badge" style="background:#f1f5f9;color:#1e3a8a;">${assigneeName}</span></td>
+                        <td class="cell-readonly" style="vertical-align:middle;text-align:center;"><div class="assignee-badge-box" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 8px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;">${assigneeDisp}</div></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
                         <td class="completion-date-cell ${!canEdit ? 'cell-readonly' : ''}">
