@@ -90,6 +90,13 @@
             display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
         }
         .modal-content { background: white; border-radius: 12px; padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+        #unread-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 2000; padding: 16px; background: rgba(15,23,42,.72); }
+        #unread-modal.is-open { display: flex; }
+        .unread-dialog { width: 100%; max-width: 460px; padding: 28px 24px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+        .unread-warning { display: block; margin: 0 auto 12px; font-size: 3rem; line-height: 1.2; animation: warning-blink 1s steps(2,start) infinite; }
+        @keyframes warning-blink { to { visibility: hidden; } }
+        .unread-message { margin: 0 0 22px; color: #0f172a; font-size: 1.08rem; line-height: 1.9; font-weight: 700; }
+        .unread-close { min-width: 120px; }
 
         .upload-status{display:inline-flex;align-items:center;gap:8px;margin:6px 0;padding:6px 10px;border-radius:24px;background:#eff6ff;color:#1e40af;font-size:.78rem;font-weight:700;min-height:34px}
         .upload-status[hidden]{display:none}.upload-status.success{background:#ecfdf5;color:#047857}.upload-status.error{background:#fef2f2;color:#b91c1c}
@@ -169,6 +176,14 @@
             <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none;"></p>
             <button type="button" class="btn btn-primary" onclick="submitLogin()">ورود</button>
         </div>
+    </div>
+
+    <div id="unread-modal" aria-hidden="true">
+        <section class="unread-dialog" role="dialog" aria-modal="true" aria-labelledby="unread-message">
+            <span class="unread-warning" aria-hidden="true">⚠️</span>
+            <p id="unread-message" class="unread-message"></p>
+            <button type="button" class="btn btn-primary unread-close" onclick="closeUnreadPopup()">متوجه شدم</button>
+        </section>
     </div>
 
     <!-- فرم ثبت تسک جدید -->
@@ -353,28 +368,39 @@
         function showUnreadPopup(errorMessage=''){
             if(loginAlertShown || !currentUser) return;
             loginAlertShown = true;
-            if(errorMessage){window.alert(`هشدار پیام‌های دیده‌نشده برای ${currentUser.name}:\n${errorMessage}`);return;}
             const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
-            window.alert(`وضعیت پیام‌ها و فایل‌های دیده‌نشده برای ${currentUser.name}:\nپیام/فعالیت‌های جدید: ${unreadTasks}\nفایل‌های بازنشده: ${unreadFiles}`);
+            const modal=document.getElementById('unread-modal');
+            const message=document.getElementById('unread-message');
+            if(message) message.textContent=`شما ${unreadTasks} پیام دیده‌نشده و ${unreadFiles} فایل بازنشده دارید`;
+            if(modal){modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');}
+        }
+        function closeUnreadPopup(){
+            const modal=document.getElementById('unread-modal');
+            if(modal){modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');}
         }
         function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(_){return {}}}
         function writeStore(key,obj){try{localStorage.setItem(key,JSON.stringify(obj))}catch(e){console.warn('localStorage unavailable',e)}}
+        function getFileIdentity(file){return String(file?.path||file?.url||file?.name||'').trim()}
         function getFileSeenKey(taskId,file){
-            const identity=String(file?.url||file?.path||file?.name||'').trim();
+            const identity=getFileIdentity(file);
             return `${String(taskId)}:file:${encodeURIComponent(identity||'unknown')}`;
         }
         function isFileRead(taskId,index,file){
             if(!currentUser)return false;
-            const store=readStore(FILE_SEEN_KEY), stable=getFileSeenKey(taskId,file), legacy=store[`${taskId}:${index}`];
-            const entry=store[stable];
-            if(entry&&typeof entry==='object'&&entry[currentUser.key])return true;
-            // Migrate old index-based receipts without losing previously read files.
-            if(legacy&&typeof legacy==='object'&&legacy[currentUser.key]){
-                store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
-                store[stable][currentUser.key]=legacy[currentUser.key];writeStore(FILE_SEEN_KEY,store);return true;
+            const store=readStore(FILE_SEEN_KEY), stable=getFileSeenKey(taskId,file);
+            const candidates=[`${taskId}:${index}`];
+            // Older versions used URL before path for the stable identity; preserve those receipts.
+            if(file?.url){const oldUrlKey=`${String(taskId)}:file:${encodeURIComponent(String(file.url).trim())}`;if(oldUrlKey!==stable)candidates.push(oldUrlKey)}
+            for(const oldKey of candidates){
+                const legacy=store[oldKey];
+                if(legacy&&typeof legacy==='object'&&legacy[currentUser.key]){
+                    store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
+                    store[stable][currentUser.key]=legacy[currentUser.key];writeStore(FILE_SEEN_KEY,store);return true;
+                }
             }
-            return false;
+            const entry=store[stable];
+            return !!(entry&&typeof entry==='object'&&entry[currentUser.key]);
         }
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
