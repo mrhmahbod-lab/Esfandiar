@@ -36,17 +36,6 @@
         .user-panel { display: flex; align-items: center; gap: 12px; }
         .badge { background: #e0e7ff; color: #3730a3; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
 
-        /* اعلان پیام‌ها و پیوست‌های بازنشده */
-        #unread-alert-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(15,23,42,.58); z-index: 1200; }
-        #unread-alert-modal .unread-alert-card { width: min(100%, 460px); background: var(--card, #fff); color: var(--text, #0f172a); border: 1px solid var(--border, #e2e8f0); border-radius: 18px; padding: 26px; text-align: center; box-shadow: 0 24px 70px rgba(15,23,42,.25); animation: unreadAlertIn .18s ease-out; }
-        #unread-alert-modal .unread-alert-icon { width: 54px; height: 54px; margin: 0 auto 12px; display: grid; place-items: center; border-radius: 50%; background: #eef2ff; color: #4338ca; font-size: 27px; }
-        #unread-alert-modal h2 { margin: 0 0 10px; color: var(--primary, #1e3a8a); font-size: 1.15rem; }
-        #unread-alert-modal p { margin: 0 0 20px; line-height: 1.9; font-size: 1rem; }
-        #unread-alert-modal .unread-alert-count { color: #b45309; font-weight: 800; }
-        #unread-alert-modal button { border: 0; border-radius: 10px; padding: 10px 24px; background: var(--primary, #1e3a8a); color: white; font: inherit; font-weight: 700; cursor: pointer; }
-        #unread-alert-modal button:hover { filter: brightness(1.1); }
-        @keyframes unreadAlertIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
-
         #login-modal {
             position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75);
             display: flex; align-items: center; justify-content: center; z-index: 1000;
@@ -155,16 +144,6 @@
                 </tr>
             </tbody>
         </table>
-    </div>
-
-    <!-- اعلان پیام‌های دیده‌نشده و فایل‌های بازنشده -->
-    <div id="unread-alert-modal" role="dialog" aria-modal="true" aria-labelledby="unread-alert-title" onclick="if(event.target===this)closeUnreadAlert()">
-        <div class="unread-alert-card">
-            <div class="unread-alert-icon" aria-hidden="true">🔔</div>
-            <h2 id="unread-alert-title">اطلاع‌رسانی</h2>
-            <p id="unread-alert-message"></p>
-            <button type="button" onclick="closeUnreadAlert()">متوجه شدم</button>
-        </div>
     </div>
 
     <!-- دیالوگ ورود -->
@@ -322,7 +301,8 @@
             localStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
             document.getElementById('login-modal').style.display = 'none';
             setupInterface();
-            fetchTasks();startTaskSync();
+            loginAlertShown = false;
+            fetchTasks({showUnreadPopup:true});startTaskSync();
         }
 
         function logout() {
@@ -350,58 +330,52 @@
             if(!pollTimer)pollTimer=setInterval(()=>fetchTasks({background:true}),5000);
             if(!realtimeChannel){realtimeChannel=db.channel('public-tasks-sync').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{refreshPending=true;queueSafeRefresh()}).subscribe();}
         }
-        let unreadAlertCheckedForUser = null;
-        function showUnreadAlertAfterSuccessfulLoginFetch() {
-            if (!currentUser || unreadAlertCheckedForUser === currentUser.key) return;
-            const sessionKey = `esfandiar_unread_alert_v1:${currentUser.key}`;
-            try { if (sessionStorage.getItem(sessionKey) === '1') { unreadAlertCheckedForUser = currentUser.key; return; } } catch (_) {}
-            const unreadTasks = tasks.filter(t => {
-                const meta = getTaskMeta(t);
-                return !!(meta.updated_at && meta.updated_by && meta.updated_by !== currentUser.key && !isTaskSeen(t));
-            }).length;
-            const fileSeen = readStore(FILE_SEEN_KEY);
-            let unopenedFiles = 0;
-            for (const task of tasks) {
-                let files = task.files;
-                if (typeof files === 'string') { try { files = JSON.parse(files); } catch (_) { files = []; } }
-                if (!Array.isArray(files)) continue;
-                files.forEach((file, index) => {
-                    if (!file) return;
-                    const seenBy = fileSeen[`${task.id}:${index}`];
-                    if (!seenBy || !seenBy[currentUser.key]) unopenedFiles++;
-                });
-            }
-            unreadAlertCheckedForUser = currentUser.key;
-            try { sessionStorage.setItem(sessionKey, '1'); } catch (_) {}
-            if (!unreadTasks && !unopenedFiles) return;
-            const message = document.getElementById('unread-alert-message');
-            message.innerHTML = `شما <span class="unread-alert-count">${unreadTasks}</span> پیام دیده‌نشده و <span class="unread-alert-count">${unopenedFiles}</span> فایل بازنشده دارید`;
-            document.getElementById('unread-alert-modal').style.display = 'flex';
-        }
-        function closeUnreadAlert() {
-            const modal = document.getElementById('unread-alert-modal');
-            if (modal) modal.style.display = 'none';
-        }
-
         async function fetchTasks(options={}) {
             if (!db) {
                 document.getElementById('tasks-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:red;">خطا در ارتباط با پایگاه داده</td></tr>';
+                if(options.showUnreadPopup) showUnreadPopup('امکان دریافت شمارش پیام‌ها از سرور وجود ندارد.');
                 return;
             }
             const { data, error } = await db.from('tasks').select('*').order('order_index', { ascending: true });
             if (error) {
                 document.getElementById('tasks-body').innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">خطای پایگاه‌داده: ${error.message}</td></tr>`;
+                if(options.showUnreadPopup) showUnreadPopup('دریافت شمارش پیام‌ها از سرور ناموفق بود.');
                 return;
             }
-            tasks = data || [];
+            tasks = Array.isArray(data) ? data : [];
             if(options.background&&hasActiveWork()){refreshPending=true;return;}
             refreshPending=false;renderTable();
-            if (!options.background) showUnreadAlertAfterSuccessfulLoginFetch();
+            if(options.showUnreadPopup) showUnreadPopup();
         }
 
         const META_KEY='esfandiar_task_meta_v1', SEEN_KEY='esfandiar_seen_v1', FILE_SEEN_KEY='esfandiar_file_seen_v1';
+        let loginAlertShown = false;
+        function showUnreadPopup(errorMessage=''){
+            if(loginAlertShown || !currentUser) return;
+            loginAlertShown = true;
+            if(errorMessage){window.alert(`هشدار پیام‌های دیده‌نشده برای ${currentUser.name}:\n${errorMessage}`);return;}
+            const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
+            const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
+            window.alert(`وضعیت پیام‌ها و فایل‌های دیده‌نشده برای ${currentUser.name}:\nپیام/فعالیت‌های جدید: ${unreadTasks}\nفایل‌های بازنشده: ${unreadFiles}`);
+        }
         function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(_){return {}}}
         function writeStore(key,obj){try{localStorage.setItem(key,JSON.stringify(obj))}catch(e){console.warn('localStorage unavailable',e)}}
+        function getFileSeenKey(taskId,file){
+            const identity=String(file?.url||file?.path||file?.name||'').trim();
+            return `${String(taskId)}:file:${encodeURIComponent(identity||'unknown')}`;
+        }
+        function isFileRead(taskId,index,file){
+            if(!currentUser)return false;
+            const store=readStore(FILE_SEEN_KEY), stable=getFileSeenKey(taskId,file), legacy=store[`${taskId}:${index}`];
+            const entry=store[stable];
+            if(entry&&typeof entry==='object'&&entry[currentUser.key])return true;
+            // Migrate old index-based receipts without losing previously read files.
+            if(legacy&&typeof legacy==='object'&&legacy[currentUser.key]){
+                store[stable]=store[stable]&&typeof store[stable]==='object'?store[stable]:{};
+                store[stable][currentUser.key]=legacy[currentUser.key];writeStore(FILE_SEEN_KEY,store);return true;
+            }
+            return false;
+        }
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
         function getSeenMap(t){const merged={...normalizeSeenMap(t.seen_by)},local=readStore(SEEN_KEY)[String(t.id)]||{};for(const [key,stamp] of Object.entries(local))if(!merged[key]||Date.parse(stamp)>=Date.parse(merged[key]))merged[key]=stamp;return merged}
@@ -478,7 +452,11 @@
             const klass=unread?'unresolved':meta.updated_at&&((meta.updated_by===currentUser.key&&seenByOther)||isTaskSeen(t))?'resolved':meta.updated_at?'pending':'neutral';
             const badge=line.querySelector('.receipt-badge');if(badge){badge.className='receipt-badge '+klass;badge.textContent=text;}
         }
-        function markFileRead(id,index,event){const d=readStore(FILE_SEEN_KEY);const k=`${id}:${index}`;d[k]=d[k]||{};if(currentUser)d[k][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);markTaskSeen(id,event,{preserveDefault:true})}
+        function markFileRead(id,index,event){
+            const task=tasks.find(x=>String(x.id)===String(id)),file=task&&Array.isArray(task.files)?task.files[index]:null;
+            if(currentUser&&file){const d=readStore(FILE_SEEN_KEY),key=getFileSeenKey(id,file);d[key]=d[key]&&typeof d[key]==='object'?d[key]:{};d[key][currentUser.key]=new Date().toISOString();writeStore(FILE_SEEN_KEY,d);}
+            markTaskSeen(id,event,{preserveDefault:true});
+        }
         async function updateTask(id,patch){
             if(!db)return {error:{message:'اتصال پایگاه داده برقرار نیست.'}};
             const now=new Date().toISOString();
@@ -771,7 +749,8 @@
                 currentUser = JSON.parse(saved);
                 document.getElementById('login-modal').style.display = 'none';
                 setupInterface();
-                fetchTasks();
+                loginAlertShown = false;
+                fetchTasks({showUnreadPopup:true});
                 startTaskSync();
             }
         });
