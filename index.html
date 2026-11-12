@@ -150,12 +150,12 @@
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
-            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود کاربران عادی بدون رمز عبور جهت تسهیل کارگاهی است.</p>
+            <p style="font-size: 0.78rem; color: #475569; margin-bottom: 12px;">برای ورود همه کاربران، انتخاب نام کاربری و وارد کردن رمز عبور الزامی است.</p>
             <div class="form-group">
                 <label>انتخاب کاربر:</label>
                 <select id="login-user-select" class="form-control" onchange="togglePasswordField()">
                     <option value="" disabled selected>-- لطفاً انتخاب کنید --</option>
-                    <option value="user1">کاربر یک (رئیس کارگاه)</option>
+                    <option value="user1">مهندس هاشمی (رئیس کارگاه)</option>
                     <option value="user2">کاربر دو (مهندس اجرا)</option>
                     <option value="user3">کاربر سه (دفتر فنی)</option>
                     <option value="user4">کاربر چهار (ایمنی)</option>
@@ -163,8 +163,8 @@
                 </select>
             </div>
             <div class="form-group" id="password-group" style="display: none;">
-                <label>رمز عبور مدیر:</label>
-                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور...">
+                <label for="login-password">رمز عبور:</label>
+                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور..." autocomplete="current-password" required>
             </div>
             <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none;"></p>
             <button type="button" class="btn btn-primary" onclick="submitLogin()">ورود</button>
@@ -237,11 +237,21 @@
 
         const USERS = {
             'mahbod': { name: 'مهندس مهبد', title: 'مدیر پروژه', role: 'admin' },
-            'user1': { name: 'کاربر یک', title: 'رئیس کارگاه', role: 'user' },
+            'user1': { name: 'مهندس هاشمی', title: 'رئیس کارگاه', role: 'user' },
             'user2': { name: 'کاربر دو', title: 'مهندس اجرا', role: 'user' },
             'user3': { name: 'کاربر سه', title: 'دفتر فنی', role: 'user' },
             'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' }
         };
+
+        // یادآوری امنیتی: رمزهای داخل فایل HTML سمت مرورگر قابل مشاهده‌اند.
+        // برای امنیت واقعی، احراز هویت را به Supabase Auth/RLS منتقل کنید.
+        const LOGIN_PASSWORDS = Object.freeze({
+            mahbod: '@Aida1387@',
+            user1: 'u1_123456',
+            user2: 'u2_123456',
+            user3: 'u3_123456',
+            user4: 'u4_123456'
+        });
 
         const MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
         let currentUser = null;
@@ -278,7 +288,14 @@
 
         function togglePasswordField() {
             const val = document.getElementById('login-user-select').value;
-            document.getElementById('password-group').style.display = (val === 'mahbod') ? 'block' : 'none';
+            const group = document.getElementById('password-group');
+            // هر کاربر انتخاب‌شده، از جمله مدیر، باید رمز وارد کند.
+            group.style.display = val ? 'block' : 'none';
+            document.getElementById('login-password').value = '';
+            const err = document.getElementById('login-error');
+            err.style.display = 'none';
+            err.innerText = '';
+            if (val) document.getElementById('login-password').focus();
         }
 
         function submitLogin() {
@@ -286,19 +303,21 @@
             const pass = document.getElementById('login-password').value;
             const err = document.getElementById('login-error');
 
-            if (!val) {
+            if (!val || !USERS[val]) {
                 err.innerText = 'لطفاً کاربر را انتخاب کنید.';
                 err.style.display = 'block';
                 return;
             }
-            if (val === 'mahbod' && pass !== '@Aida1387@') {
-                err.innerText = 'رمز عبور مدیر صحیح نیست.';
+            if (!pass || pass !== LOGIN_PASSWORDS[val]) {
+                err.innerText = 'نام کاربری یا رمز عبور صحیح نیست.';
                 err.style.display = 'block';
+                document.getElementById('login-password').focus();
                 return;
             }
 
             currentUser = { key: val, ...USERS[val] };
-            localStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
+            // نشست‌های قدیمیِ بدون احراز هویت معتبر نباید ورود را دور بزنند.
+            localStorage.removeItem('esfandiar_user');
             document.getElementById('login-modal').style.display = 'none';
             setupInterface();
             fetchTasks();startTaskSync();
@@ -693,16 +712,13 @@
             }
         }
 
-        // بررسی وضعیت ورود قبلی کاربر
+        // نشست قبلیِ ذخیره‌شده در مرورگر احراز هویت محسوب نمی‌شود؛ ورود با رمز لازم است.
         window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('esfandiar_user');
-            if (saved) {
-                currentUser = JSON.parse(saved);
-                document.getElementById('login-modal').style.display = 'none';
-                setupInterface();
-                fetchTasks();
-                startTaskSync();
-            }
+            localStorage.removeItem('esfandiar_user');
+            document.getElementById('login-modal').style.display = 'flex';
+            document.getElementById('login-user-select').value = '';
+            document.getElementById('login-password').value = '';
+            togglePasswordField();
         });
     </script>
 </body>
