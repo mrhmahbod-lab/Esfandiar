@@ -92,10 +92,15 @@
         .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
         .file-link.file-read{background:#fef9c3;color:#15803d}.file-link.file-unread{background:#000;color:#ef4444;animation:warning-blink .8s steps(2,start) infinite}
         .task-text-unread { background: #000 !important; color: #ef4444 !important; animation: warning-blink .8s steps(2,start) infinite; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        @keyframes field-unread-pulse { 0%,100% { box-shadow: 0 0 0 2px #dc2626, 0 0 5px rgba(220,38,38,.45); } 50% { box-shadow: 0 0 0 3px #ef4444, 0 0 13px rgba(220,38,38,.9); } }
+        textarea.form-control.field-unread { background-color: #fff1f2; border: 2px solid #dc2626; animation: field-unread-pulse 1s ease-in-out infinite; }
+        .progress-box.field-unread .progress-slider { accent-color: #dc2626; outline: 2px solid #dc2626; outline-offset: 2px; animation: field-unread-pulse 1s ease-in-out infinite; }
+        .progress-box.field-unread .progress-ring { border-radius: 50%; animation: field-unread-pulse 1s ease-in-out infinite; }
+        .progress-box.field-unread .progress-ring circle { stroke: #fecaca; }
+        .progress-box.field-unread .progress-ring .meter { stroke: #dc2626; }
+        .progress-box.field-unread .progress-ring b, .progress-box.field-unread > span:last-child { color: #dc2626 !important; animation: field-unread-pulse 1s ease-in-out infinite; }
 
         
-        .field-unread-alert{display:inline-flex;align-items:center;gap:4px;background:#000;color:#ef4444;font-size:.78rem;font-weight:800;padding:4px 9px;border-radius:6px;cursor:pointer;box-shadow:0 0 0 1px #dc2626;animation:warning-blink 1s steps(2,start) infinite;margin:2px 0 4px;white-space:nowrap}
-        .field-unread-alert[hidden]{display:none}
 .modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.5);
             display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
@@ -562,10 +567,9 @@
                 const stamp=getFieldSeen(t)[field]?.[currentUser.key];
                 return !(stamp&&Date.parse(stamp)>=Date.parse(meta.at));
             }
-            // Legacy task-level unread rows have no per-field provenance; keep visible warnings.
-            return !!(isTaskSeen && !isTaskSeen(t));
+            // Without recorded per-field provenance, do not infer a field-level unread state.
+            return false;
         }
-        function fieldAlert(t,field,label){return isFieldUnread(t,field)?`<span class="field-unread-alert warning-blink" role="button" tabindex="0" onclick="acknowledgeField('${t.id}','${field}',event)" onmouseenter="acknowledgeField('${t.id}','${field}',event)" onfocus="acknowledgeField('${t.id}','${field}',event)" title="${label} تغییر کرده است - کلیک برای تایید">⚠️ ${label} جدید</span>`:''}
         async function acknowledgeField(id,field,event){
             if(event){event.stopPropagation();if(event.type==='click')event.preventDefault();}
             if(!TRACKED_FIELDS.includes(field)||!currentUser)return;
@@ -846,7 +850,7 @@
                                 ` : ''}
                             </div>
                         </td>
-                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${(unread||isFieldUnread(t,'description')) ? 'task-text-unread' : ''}" onmouseenter="acknowledgeField('${t.id}','description',event)" onclick="acknowledgeField('${t.id}','description',event)">${t.description || '-'}</span>${fieldAlert(t,'description','شرح فعالیت')}</td>
+                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${(unread||isFieldUnread(t,'description')) ? 'task-text-unread' : ''}" onmouseenter="acknowledgeField('${t.id}','description',event)" onclick="acknowledgeField('${t.id}','description',event)">${t.description || '-'}</span></td>
                         <td class="cell-readonly" style="vertical-align:middle;text-align:center;"><div class="assignee-badge-box" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 8px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;">${assigneeDisp}</div></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
@@ -873,22 +877,22 @@
                         </td>
                         <td class="actions-cell ${!canEdit ? 'cell-readonly' : ''}">
                             <div class="action-cell-content">
-                            <div class="progress-box">
-                                ${fieldAlert(t,'progress','درصد')}
+                            <div class="progress-box ${isFieldUnread(t,'progress') ? 'field-unread' : ''}">
+                                
                                 <span class="progress-ring" aria-label="${t.progress || 0} درصد پیشرفت"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><circle class="meter" cx="20" cy="20" r="16" style="stroke-dashoffset:${100.53-(Math.max(0,Math.min(100,Number(t.progress)||0))*100.53/100)}"/></svg><b>${t.progress || 0}%</b></span>
                                 <input type="range" class="progress-slider" id="prog-range-${t.id}" min="0" max="100" value="${t.progress || 0}"
                                     oninput="document.getElementById('prog-val-${t.id}').innerText = this.value + '%'"
                                     ${!canEdit ? 'disabled' : ''}>
                                 <span id="prog-val-${t.id}" style="font-size:0.8rem;font-weight:bold;min-width:32px;">${t.progress || 0}%</span>
                             </div>
-                            ${fieldAlert(t,'actions','اقدام')}
-                            <textarea class="form-control" id="actions-text-${t.id}" placeholder="شرح اقدام..." ${!canEdit ? 'disabled' : ''}>${t.actions || ''}</textarea>
+                            
+                            <textarea class="form-control ${isFieldUnread(t,'actions') ? 'field-unread' : ''}" id="actions-text-${t.id}" placeholder="شرح اقدام..." ${!canEdit ? 'disabled' : ''}>${t.actions || ''}</textarea>
                             </div>
                         </td>
                         <td class="details-cell">
                             <div class="details-cell-content">
-                            ${fieldAlert(t,'details','یادداشت')}
-                            <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
+                            
+                            <textarea class="form-control ${isFieldUnread(t,'details') ? 'field-unread' : ''}" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
