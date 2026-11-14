@@ -93,7 +93,10 @@
         .file-link.file-read{background:#fef9c3;color:#15803d}.file-link.file-unread{background:#000;color:#ef4444;animation:warning-blink .8s steps(2,start) infinite}
         .task-text-unread { background: #000 !important; color: #ef4444 !important; animation: warning-blink .8s steps(2,start) infinite; padding: 4px 8px; border-radius: 4px; display: inline-block; }
 
-        .modal {
+        
+        .field-unread-alert{display:inline-flex;align-items:center;gap:4px;background:#000;color:#ef4444;font-size:.78rem;font-weight:800;padding:4px 9px;border-radius:6px;cursor:pointer;box-shadow:0 0 0 1px #dc2626;animation:warning-blink 1s steps(2,start) infinite;margin:2px 0 4px;white-space:nowrap}
+        .field-unread-alert[hidden]{display:none}
+.modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.5);
             display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
         }
@@ -548,6 +551,48 @@
         function isTaskSeen(t){const meta=getTaskMeta(t),stamp=getSeenMap(t)[currentUser.key];return !!(meta.updated_at&&stamp&&sameInstant(stamp,meta.updated_at))}
         function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&sameInstant(seen[k],meta.updated_at));return key?(USERS[key]?.name||key):''}
         function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+        const TRACKED_FIELDS=['actions','progress','details','description'];
+        function getFieldMeta(t){return normalizeSeenMap(t?.field_meta)}
+        function getFieldSeen(t){return normalizeSeenMap(t?.field_seen)}
+        function isFieldUnread(t,field){
+            if(!currentUser)return false;
+            const meta=getFieldMeta(t)[field];
+            if(meta&&meta.at){
+                if(meta.by===currentUser.key)return false;
+                const stamp=getFieldSeen(t)[field]?.[currentUser.key];
+                return !(stamp&&Date.parse(stamp)>=Date.parse(meta.at));
+            }
+            // Legacy task-level unread rows have no per-field provenance; keep visible warnings.
+            return !!(isTaskSeen && !isTaskSeen(t));
+        }
+        function fieldAlert(t,field,label){return isFieldUnread(t,field)?`<span class="field-unread-alert warning-blink" role="button" tabindex="0" onclick="acknowledgeField('${t.id}','${field}',event)" onmouseenter="acknowledgeField('${t.id}','${field}',event)" onfocus="acknowledgeField('${t.id}','${field}',event)" title="${label} تغییر کرده است - کلیک برای تایید">⚠️ ${label} جدید</span>`:''}
+        async function acknowledgeField(id,field,event){
+            if(event){event.stopPropagation();if(event.type==='click')event.preventDefault();}
+            if(!TRACKED_FIELDS.includes(field)||!currentUser)return;
+            const task=tasks.find(x=>String(x.id)===String(id));if(!task)return;
+            if(!isFieldUnread(task,field))return;
+            if(!db){console.warn('ثبت مشاهده این فیلد در پایگاه داده انجام نشد: اتصال موجود نیست.');return;}
+            for(let attempt=0;attempt<4;attempt++){
+                const fetched=await db.from('tasks').select('*').eq('id',id).maybeSingle();
+                if(fetched.error){console.warn('خواندن وضعیت فیلد ناموفق بود:',fetched.error);return;}
+                if(!fetched.data)return;
+                const latest=fetched.data, fm=normalizeSeenMap(latest.field_meta), fs=normalizeSeenMap(latest.field_seen), info=fm[field];
+                if(!info?.at || info.by===currentUser.key || (fs[field]?.[currentUser.key]&&Date.parse(fs[field][currentUser.key])>=Date.parse(info.at))){Object.assign(task,latest);renderTable();return;}
+                fs[field]={...(fs[field]||{}),[currentUser.key]:new Date().toISOString()};
+                let result=await db.from('tasks').update({field_seen:fs}).eq('id',id);
+                if(latest.updated_at)result=result.eq('updated_at',latest.updated_at);
+                result=await result.select('*').maybeSingle();
+                if(result.error){console.warn('ذخیره تایید فیلد ناموفق بود؛ ستون‌های field_meta/field_seen را با SQL همراه اضافه کنید.',result.error);return;}
+                if(result.data){Object.assign(task,result.data);renderTable();return;}
+            }
+            console.warn('تغییر همزمان در ثبت مشاهده فیلد؛ دوباره تلاش کنید.');
+        }
+        function bindFieldAcknowledge(id,field){
+            const el=document.getElementById(field==='progress'?`prog-range-${id}`:field==='actions'?`actions-text-${id}`:field==='details'?`details-text-${id}`: `task-description-${id}`);
+            if(!el)return;
+            el.addEventListener('mouseenter',e=>acknowledgeField(id,field,e),{once:true});
+            el.addEventListener('focus',e=>acknowledgeField(id,field,e),{once:true});
+        }
         function isSchemaCompatibilityError(error){const msg=String(error?.message||error||'');return /column|schema cache|does not exist|unknown field|invalid input syntax|cannot cast|type .*json|jsonb|22P02|42703|PGRST204/i.test(msg)||['42703','22P02','42804','PGRST204'].includes(error?.code)}
         async function persistTaskPatch(id,payload){
             const candidates=[],add=p=>{const key=JSON.stringify(p);if(!candidates.some(x=>JSON.stringify(x)===key))candidates.push(p)};
@@ -644,20 +689,42 @@
         async function updateTask(id,patch){
             if(!db)return {error:{message:'اتصال پایگاه داده برقرار نیست.'}};
             const now=new Date().toISOString();
-            // Never include seen_by/seen_status in a task edit: receipt writes may occur concurrently.
             const safePatch={...patch};delete safePatch.seen_by;delete safePatch.seen_status;
+            const task=tasks.find(x=>String(x.id)===String(id));
+            let field_meta=normalizeSeenMap(task?.field_meta),field_seen=normalizeSeenMap(task?.field_seen);
+            let changed=false;
+            if(task){for(const field of TRACKED_FIELDS){if(Object.prototype.hasOwnProperty.call(safePatch,field)){
+                const oldValue=field==='progress'?(Number(task[field])||0):String(task[field]??'');
+                const newValue=field==='progress'?(Number(safePatch[field])||0):String(safePatch[field]??'');
+                if(oldValue!==newValue){field_meta[field]={by:currentUser.key,at:now};field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:now};changed=true;}
+            }}}
             const enriched={...safePatch,updated_at:now,updated_by:currentUser.key};
-            const candidates=[enriched,{...safePatch,updated_at:now,updated_by:currentUser.key},safePatch];
+            if(changed){enriched.field_meta=field_meta;enriched.field_seen=field_seen;}
+            const candidates=[enriched];
+            if(changed){candidates.push({...enriched,field_meta:JSON.stringify(field_meta),field_seen:JSON.stringify(field_seen)});}
+            candidates.push({...safePatch,updated_at:now,updated_by:currentUser.key});candidates.push(safePatch);
             let result=null,lastError=null;
-            for(const candidate of candidates){
-                result=await db.from('tasks').update(candidate).eq('id',id).select('*').maybeSingle();
+            for(const candidate0 of candidates){
+                const candidate={...candidate0};
+                let query=db.from('tasks').update(candidate).eq('id',id);
+                // Conditional revision guard prevents overwriting a newer concurrent edit.
+                if(task?.updated_at)query=query.eq('updated_at',task.updated_at);
+                result=await query.select('*').maybeSingle();
                 if(!result.error&&result.data)break;
-                if(!result.error&&!result.data)result={...result,error:{message:'رکورد به‌روزرسانی نشد (مجوز یا شناسه را بررسی کنید).'}};
-                lastError=result.error;if(!isSchemaCompatibilityError(lastError))break;
+                if(!result.error&&!result.data){result={...result,error:{message:'تسک هم‌زمان تغییر کرد یا به‌روزرسانی نشد.'}};lastError=result.error;break;}
+                lastError=result.error;
+                if(isSchemaCompatibilityError(lastError)&&(Object.hasOwn(candidate,'field_meta')||Object.hasOwn(candidate,'field_seen'))){
+                    const fallback={...candidate};delete fallback.field_meta;delete fallback.field_seen;
+                    let retry=db.from('tasks').update(fallback).eq('id',id);if(task?.updated_at)retry=retry.eq('updated_at',task.updated_at);
+                    result=await retry.select('*').maybeSingle();if(!result.error&&result.data)break;
+                    if(!result.error&&!result.data)result={...result,error:{message:'تسک هم‌زمان تغییر کرد یا به‌روزرسانی نشد.'}};
+                    lastError=result.error;
+                }
+                if(!isSchemaCompatibilityError(lastError))break;
             }
             if(result?.error)return result;
             if(!result?.data)return {error:lastError||{message:'نتیجه ذخیره از سرور دریافت نشد.'}};
-            const saved=result.data, task=tasks.find(x=>String(x.id)===String(id));
+            const saved=result.data;
             if(task)Object.assign(task,saved);
             if(saved.updated_at&&saved.updated_by){const all=readStore(META_KEY);all[String(id)]={updated_at:saved.updated_at,updated_by:saved.updated_by};writeStore(META_KEY,all);}
             return result;
@@ -779,7 +846,7 @@
                                 ` : ''}
                             </div>
                         </td>
-                        <td class="cell-readonly"><span class="${unread ? 'task-text-unread' : ''}">${t.description || '-'}</span></td>
+                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${(unread||isFieldUnread(t,'description')) ? 'task-text-unread' : ''}" onmouseenter="acknowledgeField('${t.id}','description',event)" onclick="acknowledgeField('${t.id}','description',event)">${t.description || '-'}</span>${fieldAlert(t,'description','شرح فعالیت')}</td>
                         <td class="cell-readonly" style="vertical-align:middle;text-align:center;"><div class="assignee-badge-box" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 8px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;">${assigneeDisp}</div></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
@@ -807,17 +874,20 @@
                         <td class="actions-cell ${!canEdit ? 'cell-readonly' : ''}">
                             <div class="action-cell-content">
                             <div class="progress-box">
+                                ${fieldAlert(t,'progress','درصد')}
                                 <span class="progress-ring" aria-label="${t.progress || 0} درصد پیشرفت"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><circle class="meter" cx="20" cy="20" r="16" style="stroke-dashoffset:${100.53-(Math.max(0,Math.min(100,Number(t.progress)||0))*100.53/100)}"/></svg><b>${t.progress || 0}%</b></span>
                                 <input type="range" class="progress-slider" id="prog-range-${t.id}" min="0" max="100" value="${t.progress || 0}"
                                     oninput="document.getElementById('prog-val-${t.id}').innerText = this.value + '%'"
                                     ${!canEdit ? 'disabled' : ''}>
                                 <span id="prog-val-${t.id}" style="font-size:0.8rem;font-weight:bold;min-width:32px;">${t.progress || 0}%</span>
                             </div>
+                            ${fieldAlert(t,'actions','اقدام')}
                             <textarea class="form-control" id="actions-text-${t.id}" placeholder="شرح اقدام..." ${!canEdit ? 'disabled' : ''}>${t.actions || ''}</textarea>
                             </div>
                         </td>
                         <td class="details-cell">
                             <div class="details-cell-content">
+                            ${fieldAlert(t,'details','یادداشت')}
                             <textarea class="form-control" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
@@ -845,6 +915,7 @@
                     </tr>
                 `;
             }).join('');
+            tasks.forEach(t=>{['progress','actions','details','description'].forEach(f=>bindFieldAcknowledge(t.id,f));});
             updateStatusSummary();
             adjustActionHeights();
         }
