@@ -222,6 +222,10 @@
             <div class="header-title">
                 <h1>پروژه احداث ساختمان اسفندیار</h1>
                 <p>سامانه پیگیری و مدیریت فعالیت‌های اجرایی - شرکت مهراصل</p>
+                <section id="guest-login-log-box" class="guest-login-log-box" style="display:none" aria-live="polite">
+                    <strong>آخرین بازدیدهای کاربر مهمان (۳ ورود اخیر)</strong>
+                    <div id="guest-login-log-rows"></div>
+                </section>
             </div>
         </div>
         <div class="user-panel">
@@ -442,7 +446,8 @@
                 const diff=jalaliOrdinal(+parts[0],+parts[1],+parts[2])-jalaliOrdinal(j.y,j.m,j.d);
                 sub=diff>0?`${toFaDigits(diff)} روز مانده`:diff<0?`${toFaDigits(-diff)} روز تأخیر`:'امروز مهلت است';
             }
-            return `${toFaDigits(today)}${sub?`<br><small>${sub}</small>`:''}`;
+            const deadlineStyle=sub.includes('روز تأخیر')?'color: #ef4444; font-weight: 600;':sub.includes('روز مانده')?'color: #10b981; font-weight: 600;':'color: #f59e0b; font-weight: 600;';
+            return `${toFaDigits(today)}${sub?`<br><small style="${deadlineStyle}">${sub}</small>`:''}`;
         }
 
         function initShamsiSelect(prefix, def) {
@@ -527,6 +532,7 @@
             setupInterface();
             loginAlertShown = false;
             fetchTasks({showUnreadPopup:true});startTaskSync();
+            if(currentUser.role==='guest')recordGuestLogin();
         }
 
         function logout() {
@@ -536,11 +542,25 @@
             location.reload();
         }
 
+        // مهمان: ثبت سه ورود آخر در مرورگر و تلاش اختیاری برای همگام‌سازی با جدول Supabase.
+        const GUEST_LOG_KEY='esfandiar_guest_login_logs';
+        function readGuestLogs(){try{const x=JSON.parse(localStorage.getItem(GUEST_LOG_KEY)||'[]');return Array.isArray(x)?x.slice(-3):[]}catch(_){return []}}
+        function formatJalaliExact(date){const j=toJalali(date.getFullYear(),date.getMonth()+1,date.getDate());return `${toFaDigits(j.y)}/${toFaDigits(String(j.m).padStart(2,'0'))}/${toFaDigits(String(j.d).padStart(2,'0'))} - ${toFaDigits(String(date.getHours()).padStart(2,'0'))}:${toFaDigits(String(date.getMinutes()).padStart(2,'0'))}:${toFaDigits(String(date.getSeconds()).padStart(2,'0'))}`}
+        function guestDeviceLabel(ua){ua=String(ua||'').toLowerCase();if(/iphone|ipad|ipod/.test(ua))return 'آیفون / آیپد';if(/android/.test(ua))return 'موبایل اندروید';let os=/windows/.test(ua)?'ویندوز':(/macintosh|mac os/.test(ua)?'مک':(/linux/.test(ua)?'لینوکس':'دستگاه ناشناس'));let browser=/edg\//.test(ua)?'اج':(/chrome\//.test(ua)?'کروم':(/firefox\//.test(ua)?'فایرفاکس':(/safari\//.test(ua)?'سافاری':'مرورگر')));return `${os} - ${browser}`}
+        function renderGuestLoginLogs(logs=readGuestLogs()){const box=document.getElementById('guest-login-log-box'),rows=document.getElementById('guest-login-log-rows');if(!box||!rows||!currentUser||currentUser.role!=='admin')return;box.style.display='block';const last=logs.slice(-3).reverse();rows.innerHTML=[0,1,2].map(i=>{const l=last[i];return `<div class="guest-login-log-row"><b>سطر ${toFaDigits(i+1)}:</b> ${l?`${escapeHtml(l.date||'')} | IP: ${escapeHtml(l.ip||'نامشخص')} | دستگاه: ${escapeHtml(l.device||'نامشخص')}`:'بدون سابقه'}</div>`}).join('')}
+        async function getGuestIp(){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2800);try{const r=await fetch('https://api64.ipify.org?format=json',{signal:controller.signal,cache:'no-store'});if(!r.ok)throw new Error('IP unavailable');const d=await r.json();return String(d.ip||'نامشخص')}catch(_){return 'نامشخص'}finally{clearTimeout(timer)}}
+        async function syncGuestLogsFromSupabase(){if(!db)return;try{const {data,error}=await db.from('guest_login_logs').select('logged_at,ip,device').order('logged_at',{ascending:false}).limit(3);if(error||!Array.isArray(data)||!data.length)return;const converted=data.reverse().map(x=>({date:x.logged_at?formatJalaliExact(new Date(x.logged_at)):'',ip:x.ip||'نامشخص',device:x.device||'نامشناس'}));localStorage.setItem(GUEST_LOG_KEY,JSON.stringify(converted.slice(-3)));renderGuestLoginLogs(converted.slice(-3))}catch(e){console.info('همگام‌سازی لاگ مهمان در دسترس نیست؛ از ذخیره محلی استفاده می‌شود.')}}
+        async function recordGuestLogin(){if(!currentUser||currentUser.role!=='guest')return;const now=new Date(),entry={date:formatJalaliExact(now),logged_at:now.toISOString(),ip:await getGuestIp(),device:guestDeviceLabel(navigator.userAgent)};const logs=readGuestLogs();logs.push(entry);const recent=logs.slice(-3);try{localStorage.setItem(GUEST_LOG_KEY,JSON.stringify(recent))}catch(e){console.warn('ذخیره لاگ محلی ممکن نشد',e)}if(db){try{const {error}=await db.from('guest_login_logs').insert({logged_at:entry.logged_at,ip:entry.ip,device:entry.device});if(error)console.info('جدول guest_login_logs در دسترس نیست؛ لاگ در localStorage ذخیره شد.')}catch(e){console.info('ثبت لاگ در Supabase ممکن نشد؛ localStorage به‌عنوان جایگزین استفاده شد.')}}}
+
         function setupInterface() {
             document.getElementById('current-user-info').innerText = `${currentUser.name} (${currentUser.title})`;
             const isAdmin = currentUser.role === 'admin';
+            document.body.classList.toggle('guest-view',currentUser.role==='guest');
             document.getElementById('btn-add-task').style.display = currentUser.role === 'guest' ? 'none' : 'inline-block';
             document.getElementById('actions-header').style.display = isAdmin ? 'table-cell' : 'none';
+            const logBox=document.getElementById('guest-login-log-box');
+            if(logBox)logBox.style.display=isAdmin?'block':'none';
+            if(isAdmin){renderGuestLoginLogs();syncGuestLogsFromSupabase();}
         }
 
         let realtimeChannel=null,pollTimer=null,refreshPending=false,refreshDebounce=null;
@@ -576,7 +596,7 @@
         const META_KEY='esfandiar_task_meta_v1', SEEN_KEY='esfandiar_seen_v1', FILE_SEEN_KEY='esfandiar_file_seen_v1';
         let loginAlertShown = false;
         function showUnreadPopup(errorMessage=''){
-            if(loginAlertShown || !currentUser) return;
+            if(loginAlertShown || !currentUser || currentUser.role==='guest') return;
             loginAlertShown = true;
             const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
@@ -754,7 +774,7 @@
         }
         function receiptLineHtml(t){
             const parts=buildReceiptParts(t);
-            return `${parts.badge}<button type="button" class="btn btn-sm receipt-action" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button>${parts.time}`;
+            return `${parts.badge}${currentUser&&currentUser.role==='guest'?'':`<button type="button" class="btn btn-sm receipt-action" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button>`}${parts.time}`;
         }
         function rememberViewTime(t,stamp){
             if(!t||!currentUser)return;
@@ -767,7 +787,7 @@
         function getFieldMeta(t){return normalizeSeenMap(t?.field_meta)}
         function getFieldSeen(t){return normalizeSeenMap(t?.field_seen)}
         function isFieldUnread(t,field){
-            if(!currentUser)return false;
+            if(!currentUser||currentUser.role==='guest')return false;
             const meta=getFieldMeta(t)[field];
             if(meta&&meta.at){
                 const stamp=getFieldSeen(t)[field]?.[currentUser.key];
@@ -1111,7 +1131,7 @@
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
-                                        <a href="${f.url}" target="_blank" rel="noopener" class="file-link ${isFileRead(t,fIdx,f)?'file-read':'file-unread'}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${f.name}</a>
+                                        <a href="${f.url}" target="_blank" rel="noopener" class="file-link ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'file-read':'file-unread')}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${f.name}</a>
                                         ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
                                     </div>
                                 `).join('') : ''}
