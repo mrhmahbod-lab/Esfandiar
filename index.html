@@ -122,6 +122,13 @@
         .file-link{word-break:break-all}
         @media(max-width:700px){body{padding:8px}.header-card{padding:12px}.upload-status{font-size:.7rem}.receipt-line{align-items:stretch;gap:6px}.receipt-line .receipt-badge{align-self:stretch;width:100%;font-size:.72rem;padding:6px 9px;white-space:normal;overflow-wrap:anywhere}.receipt-line .receipt-action{align-self:stretch;width:100%;padding:7px 8px}}
 
+        .seen-time{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;color:#0f766e;background:#ecfdf5;border:1px dashed #34d399;border-radius:8px;padding:4px 8px;margin:2px 0;white-space:normal;overflow-wrap:anywhere;max-width:100%;direction:rtl}
+        .seen-time.resolved{color:#0f766e;background:#ecfdf5;border-color:#34d399}
+        .seen-time.pending{color:#92400e;background:#fffbeb;border-color:#fbbf24;font-weight:700}
+        .seen-time.waiting{color:#475569;background:#f1f5f9;border-color:#cbd5e1}
+        .receipt-action{margin-right:4px}
+        @media(max-width:700px){.receipt-line .seen-time{align-self:stretch;width:100%;justify-content:center;font-size:.72rem;padding:6px 9px}}
+
         #unread-warning-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.72)}
         #unread-warning-modal.is-visible{display:flex}
         .unread-warning-card{width:min(560px,100%);text-align:center;background:#fff;border:2px solid #f59e0b;border-radius:20px;padding:32px 24px;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:warning-card-in .35s ease-out}
@@ -555,6 +562,84 @@
         function sameInstant(a,b){const x=Date.parse(a),y=Date.parse(b);return Number.isFinite(x)&&Number.isFinite(y)&&x===y}
         function isTaskSeen(t){const meta=getTaskMeta(t),stamp=getSeenMap(t)[currentUser.key];return !!(meta.updated_at&&stamp&&sameInstant(stamp,meta.updated_at))}
         function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&sameInstant(seen[k],meta.updated_at));return key?(USERS[key]?.name||key):''}
+        // --- ثبت و نمایش تاریخ/ساعت دقیق «مشاهده شد / تایید مشاهده» ---
+        // زمان کلیک هر کاربر در همان ستون seen_by (JSONB) با کلید '@at:<user>' ذخیره می‌شود
+        // تا بدون تغییر اسکیمای پایگاه‌داده، طرف مقابل هم آن را ببیند.
+        const SEEN_AT_KEY='esfandiar_seen_at_v1', SEEN_AT_PREFIX='@at:';
+        function saveLocalSeenAt(taskId,userKey,stamp){
+            try{const all=readStore(SEEN_AT_KEY),k=String(taskId);all[k]=(all[k]&&typeof all[k]==='object')?all[k]:{};all[k][userKey]=stamp;writeStore(SEEN_AT_KEY,all);}catch(_){ }
+        }
+        function localSeenAt(taskId,userKey){const all=readStore(SEEN_AT_KEY);const map=all[String(taskId)];return map&&typeof map==='object'?map[userKey]:undefined;}
+        function validStamp(v){return typeof v==='string'&&Number.isFinite(Date.parse(v));}
+        function getViewTime(t,userKey){
+            if(!t||!userKey)return '';
+            const remote=normalizeSeenMap(t.seen_by)[SEEN_AT_PREFIX+userKey];
+            const local=localSeenAt(t.id,userKey);
+            const a=validStamp(remote)?remote:'',b=validStamp(local)?local:'';
+            if(a&&b)return Date.parse(a)>=Date.parse(b)?a:b;
+            return a||b;
+        }
+        function toFaDigits(v){return String(v??'').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)])}
+        function formatViewTime(iso){
+            if(!iso||!Number.isFinite(Date.parse(iso)))return '';
+            const d=new Date(iso),j=toJalali(d.getFullYear(),d.getMonth()+1,d.getDate());
+            return `${toFaDigits(j.y)}/${toFaDigits(j.m)}/${toFaDigits(j.d)} - ${toFaDigits(String(d.getHours()).padStart(2,'0'))}:${toFaDigits(String(d.getMinutes()).padStart(2,'0'))}`;
+        }
+        function getCounterpartView(t){
+            if(!currentUser)return null;
+            const seen=normalizeSeenMap(t&&t.seen_by);
+            const keys=Object.keys(seen).filter(k=>k.indexOf(SEEN_AT_PREFIX)!==0&&k!==currentUser.key);
+            let best=null;
+            for(const key of keys){
+                const cand={key,name:(USERS[key]&&USERS[key].name)||key,at:getViewTime(t,key)};
+                if(!best){best=cand;continue;}
+                const bp=Date.parse(best.at),cp=Date.parse(cand.at);
+                if(Number.isFinite(cp)&&(!Number.isFinite(bp)||cp>=bp))best=cand;
+            }
+            return best;
+        }
+        function buildReceiptParts(t){
+            const meta=getTaskMeta(t);
+            const seenCurrent=isTaskSeen(t);
+            const unread=!!(meta.updated_at&&meta.updated_by&&meta.updated_by!==currentUser.key&&!seenCurrent);
+            const isAuthor=!!(meta.updated_at&&meta.updated_by===currentUser.key);
+            const other=getCounterpartView(t);
+            const otherTime=other?formatViewTime(other.at):'';
+            const myRaw=getViewTime(t,currentUser.key)||(seenCurrent?getSeenMap(t)[currentUser.key]:'');
+            const myTime=formatViewTime(myRaw);
+            let badge,klass;
+            if(unread){badge='⏳ پیام جدید / دیده نشده';klass='unresolved';}
+            else if(isAuthor){
+                if(other&&otherTime){badge=`✅ دیده‌شده توسط ${other.name} — ${otherTime}`;klass='resolved';}
+                else if(other){badge=`✅ دیده‌شده توسط ${other.name}`;klass='resolved';}
+                else{badge='⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده';klass='pending';}
+            } else if(meta.updated_at){
+                badge=`✅ دیده‌شده توسط ${(USERS[currentUser.key]&&USERS[currentUser.key].name)||currentUser.key}`;klass='resolved';
+            } else {badge='ℹ️ هنوز تغییری ثبت نشده';klass='neutral';}
+            let timeText='',timeClass='waiting';
+            if(unread){ if(otherTime){timeText=`🕒 مشاهده ${other.name}: ${otherTime}`;timeClass='resolved';} }
+            else if(isAuthor){
+                if(otherTime){timeText=`🕒 ${other.name}: ${otherTime}`;timeClass='resolved';}
+                else if(other){timeText='🕒 هنوز زمان مشاهده ثبت نشده';timeClass='pending';}
+                else{timeText='🕒 هنوز توسط طرف مقابل مشاهده نشده';timeClass='pending';}
+            }
+            else if(myTime){timeText=`🕒 مشاهده شما: ${myTime}`;timeClass='resolved';}
+            else if(otherTime){timeText=`🕒 ${other.name}: ${otherTime}`;timeClass='resolved';}
+            return {
+                badge:`<span class="receipt-badge ${klass}">${escapeHtml(badge)}</span>`,
+                time:timeText?`<span class="seen-time ${timeClass}">${escapeHtml(timeText)}</span>`:''
+            };
+        }
+        function receiptLineHtml(t){
+            const parts=buildReceiptParts(t);
+            return `${parts.badge}<button type="button" class="btn btn-sm receipt-action" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button>${parts.time}`;
+        }
+        function rememberViewTime(t,stamp){
+            if(!t||!currentUser)return;
+            const when=stamp||new Date().toISOString();
+            if(t.seen_by&&typeof t.seen_by==='object')t.seen_by[SEEN_AT_PREFIX+currentUser.key]=when;
+            saveLocalSeenAt(t.id,currentUser.key,when);
+        }
         function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
         const TRACKED_FIELDS=['actions','progress','details','description'];
         function getFieldMeta(t){return normalizeSeenMap(t?.field_meta)}
@@ -619,9 +704,11 @@
             if(event){if(!options.preserveDefault)event.preventDefault();event.stopPropagation()}
             const t=tasks.find(x=>String(x.id)===String(id));if(!t||!currentUser)return;
             const meta=getTaskMeta(t);if(!meta.updated_at)return;
+            const clickStamp=new Date().toISOString();
+            rememberViewTime(t,clickStamp);
             if(!db){
                 saveLocalTaskReceipt(t,meta);console.warn('رسید مشاهده فقط محلی ثبت شد: اتصال پایگاه داده در دسترس نیست.');
-                updateReceiptBadge(t);return;
+                updateReceiptBadge(t);renderTable();return;
             }
             try{
                 // Read the latest row, merge this user's receipt into its JSONB map, then write
@@ -635,6 +722,8 @@
                     if(!stamp)throw new Error('زمان آخرین تغییر وظیفه در دسترس نیست.');
                     const seen=normalizeSeenMap(latest.seen_by);
                     seen[currentUser.key]=stamp;
+                    // زمان دقیق کلیک «مشاهده شد / تایید مشاهده» تا طرف مقابل هم آن را ببیند.
+                    seen[SEEN_AT_PREFIX+currentUser.key]=clickStamp;
                     const field_meta=normalizeSeenMap(latest.field_meta);
                     const field_seen=normalizeSeenMap(latest.field_seen);
                     for(const field of TRACKED_FIELDS){
@@ -650,11 +739,12 @@
                 }
                 if(!saved)throw lastError||new Error('ثبت رسید مشاهده انجام نشد.');
                 Object.assign(t,saved);t.seen_by=normalizeSeenMap(saved.seen_by);
+                rememberViewTime(t,clickStamp);
                 if(saved.updated_at&&saved.updated_by){const all=readStore(META_KEY);all[String(id)]={updated_at:saved.updated_at,updated_by:saved.updated_by};writeStore(META_KEY,all);}
                 // Re-render from the returned server row so every field border clears together.
                 renderTable();
             }catch(err){
-                saveLocalTaskReceipt(t,meta);
+                saveLocalTaskReceipt(t,meta);rememberViewTime(t,clickStamp);
                 console.warn('ثبت رسید مستقیم در جدول tasks ناموفق بود؛ رسید در این مرورگر به‌صورت محلی نگهداری شد.',err);
                 updateReceiptBadge(t);
             }
@@ -665,11 +755,7 @@
         function updateReceiptBadge(t){
             const row=document.getElementById(`row-${t.id}`);if(!row)return;
             const line=row.querySelector('.receipt-line');if(!line)return;
-            const meta=getTaskMeta(t),unread=!!(meta.updated_at&&meta.updated_by&&meta.updated_by!==currentUser.key&&!isTaskSeen(t));
-            const seenByOther=!!(meta.updated_at&&meta.updated_by===currentUser.key&&getSeenSummary(t));
-            const text=unread?'⏳ پیام جدید / دیده نشده':meta.updated_at&&meta.updated_by===currentUser.key?(seenByOther?`✅ دیده‌شده توسط ${escapeHtml(getSeenSummary(t))}`:'⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده'):meta.updated_at?`✅ دیده‌شده توسط ${escapeHtml(USERS[currentUser.key]?.name||currentUser.key)}`:'ℹ️ هنوز تغییری ثبت نشده';
-            const klass=unread?'unresolved':meta.updated_at&&((meta.updated_by===currentUser.key&&seenByOther)||isTaskSeen(t))?'resolved':meta.updated_at?'pending':'neutral';
-            const badge=line.querySelector('.receipt-badge');if(badge){badge.className='receipt-badge '+klass;badge.textContent=text;}
+            line.innerHTML=receiptLineHtml(t);
         }
         async function markFileRead(id,index,event){
             // preserveDefault keeps the anchor's normal navigation; propagation still matches task receipts.
@@ -910,7 +996,7 @@
                                 <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple onchange="autoUploadRow('${t.id}', this)">
                                 <div id="upload-status-${t.id}" class="upload-status" hidden></div>
                             </div>
-                            <div class="receipt-line">${unread?`<span class="receipt-badge unresolved">⏳ پیام جدید / دیده نشده</span>`:meta.updated_at&&meta.updated_by===currentUser.key?(seenByOther?`<span class="receipt-badge resolved">✅ دیده‌شده توسط ${escapeHtml(getSeenSummary(t))}</span>`:`<span class="receipt-badge pending">⏳ پیام/فایل شما هنوز توسط طرف مقابل دیده نشده</span>`):meta.updated_at?`<span class="receipt-badge resolved">✅ دیده‌شده توسط ${escapeHtml(USERS[currentUser.key]?.name||currentUser.key)}</span>`:`<span class="receipt-badge neutral">ℹ️ هنوز تغییری ثبت نشده</span>`}<button type="button" class="btn btn-sm receipt-action" style="background:#e2e8f0;margin-right:4px" onclick="markTaskSeen('${t.id}',event)">مشاهده شد / تایید مشاهده</button></div>
+                            <div class="receipt-line">${receiptLineHtml(t)}</div>
                             <div style="margin-top:8px; text-align: left;">
                                 <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
                             </div>
