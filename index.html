@@ -219,7 +219,7 @@
         </div>
         <div class="user-panel">
             <span id="current-user-info" class="badge">در حال ورود...</span>
-            <button id="btn-add-task" class="btn btn-success" style="display: none;" onclick="openNewTaskModal()">+ فعالیت جدید</button>
+            <button id="btn-add-task" class="btn btn-success" onclick="openNewTaskModal()">+ فعالیت جدید</button>
             <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="logout()">خروج</button>
         </div>
     </header>
@@ -430,7 +430,7 @@
         function setupInterface() {
             document.getElementById('current-user-info').innerText = `${currentUser.name} (${currentUser.title})`;
             const isAdmin = currentUser.role === 'admin';
-            document.getElementById('btn-add-task').style.display = isAdmin ? 'inline-block' : 'none';
+            document.getElementById('btn-add-task').style.display = 'inline-block';
             document.getElementById('actions-header').style.display = isAdmin ? 'table-cell' : 'none';
         }
 
