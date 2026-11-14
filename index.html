@@ -91,7 +91,7 @@
         .progress-slider { flex-grow: 1; }
         .file-link { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; text-decoration: none; margin: 2px; }
         .file-link.file-read{background:#fef9c3;color:#15803d}.file-link.file-unread{background:#000;color:#ef4444;animation:warning-blink .8s steps(2,start) infinite}
-        .task-text-unread { background: #000 !important; color: #ef4444 !important; animation: warning-blink .8s steps(2,start) infinite; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .task-text-unread { background: #fff1f2 !important; color: #b91c1c !important; border: 2px solid #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,.18); animation: field-unread-pulse 1s ease-in-out infinite; padding: 4px 8px; border-radius: 4px; display: inline-block; }
         @keyframes field-unread-pulse { 0%,100% { box-shadow: 0 0 0 2px #dc2626, 0 0 5px rgba(220,38,38,.45); } 50% { box-shadow: 0 0 0 3px #ef4444, 0 0 13px rgba(220,38,38,.9); } }
         textarea.form-control.field-unread { background-color: #fff1f2; border: 2px solid #dc2626; animation: field-unread-pulse 1s ease-in-out infinite; }
         .progress-box.field-unread .progress-slider { accent-color: #dc2626; outline: 2px solid #dc2626; outline-offset: 2px; animation: field-unread-pulse 1s ease-in-out infinite; }
@@ -563,9 +563,9 @@
             if(!currentUser)return false;
             const meta=getFieldMeta(t)[field];
             if(meta&&meta.at){
-                if(meta.by===currentUser.key)return false;
                 const stamp=getFieldSeen(t)[field]?.[currentUser.key];
-                return !(stamp&&Date.parse(stamp)>=Date.parse(meta.at));
+                const seenAt=Date.parse(stamp), changedAt=Date.parse(meta.at);
+                return !(Number.isFinite(seenAt)&&Number.isFinite(changedAt)&&seenAt>=changedAt);
             }
             // Without recorded per-field provenance, do not infer a field-level unread state.
             return false;
@@ -592,10 +592,8 @@
             console.warn('تغییر همزمان در ثبت مشاهده فیلد؛ دوباره تلاش کنید.');
         }
         function bindFieldAcknowledge(id,field){
-            const el=document.getElementById(field==='progress'?`prog-range-${id}`:field==='actions'?`actions-text-${id}`:field==='details'?`details-text-${id}`: `task-description-${id}`);
-            if(!el)return;
-            el.addEventListener('mouseenter',e=>acknowledgeField(id,field,e),{once:true});
-            el.addEventListener('focus',e=>acknowledgeField(id,field,e),{once:true});
+            // Merely rendering, hovering, or focusing a field must never mark it as read.
+            // Acknowledgement is explicit via the task-level confirmation button.
         }
         function isSchemaCompatibilityError(error){const msg=String(error?.message||error||'');return /column|schema cache|does not exist|unknown field|invalid input syntax|cannot cast|type .*json|jsonb|22P02|42703|PGRST204/i.test(msg)||['42703','22P02','42804','PGRST204'].includes(error?.code)}
         async function persistTaskPatch(id,payload){
@@ -637,7 +635,13 @@
                     if(!stamp)throw new Error('زمان آخرین تغییر وظیفه در دسترس نیست.');
                     const seen=normalizeSeenMap(latest.seen_by);
                     seen[currentUser.key]=stamp;
-                    let query=db.from('tasks').update({seen_by:seen}).eq('id',id);
+                    const field_meta=normalizeSeenMap(latest.field_meta);
+                    const field_seen=normalizeSeenMap(latest.field_seen);
+                    for(const field of TRACKED_FIELDS){
+                        const info=field_meta[field];
+                        if(info?.at){field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:info.at};}
+                    }
+                    let query=db.from('tasks').update({seen_by:seen,field_seen}).eq('id',id);
                     if(latest.updated_at)query=query.eq('updated_at',latest.updated_at);
                     const written=await query.select('*').maybeSingle();
                     if(written.error)throw written.error;
@@ -647,7 +651,8 @@
                 if(!saved)throw lastError||new Error('ثبت رسید مشاهده انجام نشد.');
                 Object.assign(t,saved);t.seen_by=normalizeSeenMap(saved.seen_by);
                 if(saved.updated_at&&saved.updated_by){const all=readStore(META_KEY);all[String(id)]={updated_at:saved.updated_at,updated_by:saved.updated_by};writeStore(META_KEY,all);}
-                const rowEl=document.getElementById(`row-${id}`);if(rowEl){rowEl.classList.toggle('row-unread',!!(getTaskMeta(t).updated_by!==currentUser.key&&!isTaskSeen(t)));updateReceiptBadge(t);}
+                // Re-render from the returned server row so every field border clears together.
+                renderTable();
             }catch(err){
                 saveLocalTaskReceipt(t,meta);
                 console.warn('ثبت رسید مستقیم در جدول tasks ناموفق بود؛ رسید در این مرورگر به‌صورت محلی نگهداری شد.',err);
@@ -700,7 +705,7 @@
             if(task){for(const field of TRACKED_FIELDS){if(Object.prototype.hasOwnProperty.call(safePatch,field)){
                 const oldValue=field==='progress'?(Number(task[field])||0):String(task[field]??'');
                 const newValue=field==='progress'?(Number(safePatch[field])||0):String(safePatch[field]??'');
-                if(oldValue!==newValue){field_meta[field]={by:currentUser.key,at:now};field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:now};changed=true;}
+                if(oldValue!==newValue){field_meta[field]={...(field_meta[field]||{}),previous:oldValue,by:currentUser.key,at:now};field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:now};changed=true;}
             }}}
             const enriched={...safePatch,updated_at:now,updated_by:currentUser.key};
             if(changed){enriched.field_meta=field_meta;enriched.field_seen=field_seen;}
@@ -850,7 +855,7 @@
                                 ` : ''}
                             </div>
                         </td>
-                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${(unread||isFieldUnread(t,'description')) ? 'task-text-unread' : ''}" onmouseenter="acknowledgeField('${t.id}','description',event)" onclick="acknowledgeField('${t.id}','description',event)">${t.description || '-'}</span></td>
+                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${(unread||isFieldUnread(t,'description')) ? 'task-text-unread' : ''}">${t.description || '-'}</span></td>
                         <td class="cell-readonly" style="vertical-align:middle;text-align:center;"><div class="assignee-badge-box" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 8px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;">${assigneeDisp}</div></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
