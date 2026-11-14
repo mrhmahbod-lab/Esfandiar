@@ -265,21 +265,24 @@
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
-            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود کاربران عادی بدون رمز عبور جهت تسهیل کارگاهی است.</p>
+            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود تمام کاربران (مدیر پروژه و کاربران عادی) فقط با رمز عبور امکان‌پذیر است.</p>
             <div class="form-group">
                 <label>انتخاب کاربر:</label>
-                <select id="login-user-select" class="form-control" onchange="togglePasswordField()">
+                <select id="login-user-select" class="form-control" onchange="togglePasswordField()" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('login-password').focus();}">
                     <option value="" disabled selected>-- لطفاً انتخاب کنید --</option>
                     <option value="user1">مهندس هاشمی (رئیس کارگاه)</option>
                     <option value="user2">کاربر دو (مهندس اجرا)</option>
                     <option value="user3">کاربر سه (دفتر فنی)</option>
                     <option value="user4">کاربر چهار (ایمنی)</option>
                     <option value="mahbod">مهندس مهبد (مدیر پروژه)</option>
+                    <option value="guest">مهمان (فقط خواندنی)</option>
                 </select>
             </div>
             <div class="form-group" id="password-group" style="display: none;">
-                <label>رمز عبور مدیر:</label>
-                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور...">
+                <label id="password-label">رمز عبور:</label>
+                <input type="password" id="login-password" class="form-control" placeholder="رمز عبور..." autocomplete="current-password"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();submitLogin();}">
+                <p id="password-hint" style="font-size: 0.72rem; color: #94a3b8; margin-top: 6px; display: none;">رمز عبور اختصاصی این کاربر را وارد کنید.</p>
             </div>
             <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none;"></p>
             <button type="button" class="btn btn-primary" onclick="submitLogin()">ورود</button>
@@ -363,8 +366,49 @@
             'user1': { name: 'مهندس هاشمی', title: 'رئیس کارگاه', role: 'user' },
             'user2': { name: 'کاربر دو', title: 'مهندس اجرا', role: 'user' },
             'user3': { name: 'کاربر سه', title: 'دفتر فنی', role: 'user' },
-            'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' }
+            'user4': { name: 'کاربر چهار', title: 'ایمنی', role: 'user' },
+            'guest': { name: 'مهمان', title: 'فقط خواندنی', role: 'guest' }
         };
+
+        // ===== رمز عبور کاربران عادی (فقط هش SHA-256 ذخیره می‌شود، نه متن خام) =====
+        // الگوی هش:  sha256( username + ":" + password )   ← salt همان نام کاربری است (per-user)
+        // ساخت هش جدید برای یک رمز (نمونه در کنسول مرورگر):
+        //   crypto.subtle.digest('SHA-256', new TextEncoder().encode('user1:newpass'))
+        //     .then(b => console.log([...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('')));
+        // یا با Node:  node -e "console.log(require('crypto').createHash('sha256').update('user1:newpass').digest('hex'))"
+        // رشته ۶۴ کاراکتری خروجی را جای مقدار همان کاربر قرار دهید. مسیر رمز مدیر (mahbod) دست‌نخورده است.
+        const USER_PASSWORD_HASHES = {
+            'user1': '787bd285f474cceb70a58d2c92e562e1257db19364173dc703754b4e8717fce6',
+            'user2': '10a94c271a07adcac7de65e978a39716420c46a17b72f86d5db86e41aaca1423',
+            'user3': 'afd4fef3c497cc1dc8dfec68aeddc9832f09a6f6a7f3ae1ba2e245825cb15d13',
+            'user4': 'a82e26939a106eaad9764fa854033a6e5348348caf55c7deb203c22d553471e4'
+        };
+
+        async function sha256Hex(text) {
+            if (!(window.crypto && window.crypto.subtle)) throw new Error('WebCrypto در دسترس نیست؛ صفحه باید روی HTTPS یا localhost باز شود.');
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function verifyUserPassword(key, password) {
+            const expected = USER_PASSWORD_HASHES[key];
+            if (!expected || !password) return false;
+            const actual = await sha256Hex(key + ':' + password);
+            return actual === expected;
+        }
+
+        function resetLoginForm() {
+            const sel = document.getElementById('login-user-select');
+            const pass = document.getElementById('login-password');
+            const err = document.getElementById('login-error');
+            const group = document.getElementById('password-group');
+            const hint = document.getElementById('password-hint');
+            if (pass) pass.value = '';
+            if (err) { err.innerText = ''; err.style.display = 'none'; }
+            if (sel) sel.value = '';
+            if (group) group.style.display = 'none';
+            if (hint) hint.style.display = 'none';
+        }
 
         const MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
         let currentUser = null;
@@ -383,6 +427,23 @@
             let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
             return { y: jy, m: String(jm).padStart(2, '0'), d: String(jd).padStart(2, '0') };
         }
+        function jalaliOrdinal(y,m,d){
+            y=Number(y);m=Number(m);d=Number(d);
+            const jy=y-979; let days=365*jy+Math.floor(jy/33)*8+Math.floor(((jy%33)+3)/4);
+            for(let i=1;i<m;i++) days += i<=6?31:30;
+            return days+d;
+        }
+        function getCompletionStatus(t){
+            if(Number(t.progress)>=100)return t.completion_date||'-';
+            const now=new Date(),j=toJalali(now.getFullYear(),now.getMonth()+1,now.getDate());
+            const today=`${j.y}/${j.m}/${j.d}`, due=String(t.due_date||'').replace(/[^0-9/]/g,'');
+            const parts=due.split('/'); let sub='';
+            if(parts.length===3&&parts.every(v=>/^\d+$/.test(v))){
+                const diff=jalaliOrdinal(+parts[0],+parts[1],+parts[2])-jalaliOrdinal(j.y,j.m,j.d);
+                sub=diff>0?`${toFaDigits(diff)} روز مانده`:diff<0?`${toFaDigits(-diff)} روز تأخیر`:'امروز مهلت انجام';
+            }
+            return `${toFaDigits(today)}${sub?`<br><small>${sub}</small>`:''}`;
+        }
 
         function initShamsiSelect(prefix, def) {
             const yEl = document.getElementById(`${prefix}-y`);
@@ -400,26 +461,66 @@
         }
 
         function togglePasswordField() {
-            const val = document.getElementById('login-user-select').value;
-            document.getElementById('password-group').style.display = (val === 'mahbod') ? 'block' : 'none';
+            const sel = document.getElementById('login-user-select');
+            const val = sel ? sel.value : '';
+            const pass = document.getElementById('login-password');
+            const group = document.getElementById('password-group');
+            const label = document.getElementById('password-label');
+            const hint = document.getElementById('password-hint');
+            const err = document.getElementById('login-error');
+            const show = !!val && val !== 'guest'; // مهمان بدون رمز وارد می‌شود
+            if (group) group.style.display = show ? 'block' : 'none';
+            if (label) label.innerText = (val === 'mahbod') ? 'رمز عبور مدیر:' : 'رمز عبور کاربر:';
+            if (hint) hint.style.display = (show && val !== 'mahbod') ? 'block' : 'none';
+            if (err) { err.innerText = ''; err.style.display = 'none'; }
+            if (pass) {
+                pass.value = '';
+                if (show) { try { pass.focus(); } catch (_) {} }
+            }
         }
 
-        function submitLogin() {
+        async function submitLogin() {
             const val = document.getElementById('login-user-select').value;
             const pass = document.getElementById('login-password').value;
             const err = document.getElementById('login-error');
+            const fail = (msg) => { err.innerText = msg; err.style.display = 'block'; };
 
             if (!val) {
-                err.innerText = 'لطفاً کاربر را انتخاب کنید.';
-                err.style.display = 'block';
+                fail('لطفاً کاربر را انتخاب کنید.');
                 return;
             }
-            if (val === 'mahbod' && pass !== '@Aida1387@') {
-                err.innerText = 'رمز عبور مدیر صحیح نیست.';
-                err.style.display = 'block';
+            if (val === 'guest') { /* ورود مهمان بدون رمز */ } else if (!pass) {   // کاربران دیگر رمز لازم دارند
+                fail('لطفاً رمز عبور را وارد کنید.');
                 return;
             }
 
+            if (val === 'guest') {
+                // دسترسی فقط خواندنی
+            } else if (val === 'mahbod') {
+                // مسیر مدیر: بدون هیچ تغییری نسبت به نسخه قبلی
+                if (pass !== '@Aida1387@') {
+                    fail('رمز عبور مدیر صحیح نیست.');
+                    return;
+                }
+            } else {
+                if (!USERS[val]) {
+                    fail('کاربر نامعتبر است.');
+                    return;
+                }
+                let ok = false;
+                try {
+                    ok = await verifyUserPassword(val, pass);
+                } catch (e) {
+                    fail('خطا در بررسی رمز عبور: ' + (e && e.message ? e.message : e));
+                    return;
+                }
+                if (!ok) {
+                    fail('رمز عبور صحیح نیست.');
+                    return;
+                }
+            }
+
+            resetLoginForm();   // پاک‌سازی رمز ورودی پس از ورود موفق
             currentUser = { key: val, ...USERS[val] };
             localStorage.setItem('esfandiar_user', JSON.stringify(currentUser));
             document.getElementById('login-modal').style.display = 'none';
@@ -431,13 +532,14 @@
         function logout() {
             if(pollTimer){clearInterval(pollTimer);pollTimer=null;}if(realtimeChannel){db.removeChannel(realtimeChannel);realtimeChannel=null;}
             localStorage.removeItem('esfandiar_user');
+            resetLoginForm();
             location.reload();
         }
 
         function setupInterface() {
             document.getElementById('current-user-info').innerText = `${currentUser.name} (${currentUser.title})`;
             const isAdmin = currentUser.role === 'admin';
-            document.getElementById('btn-add-task').style.display = 'inline-block';
+            document.getElementById('btn-add-task').style.display = currentUser.role === 'guest' ? 'none' : 'inline-block';
             document.getElementById('actions-header').style.display = isAdmin ? 'table-cell' : 'none';
         }
 
@@ -921,6 +1023,8 @@
                 const unread = !!(meta.updated_at && meta.updated_by && meta.updated_by !== currentUser.key && !isTaskSeen(t));
                 const seenByOther = !!(meta.updated_at && meta.updated_by === currentUser.key && getSeenSummary(t));
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
+                const completionDisplay = getCompletionStatus(t);
+                const readOnlyGuest = currentUser.role === 'guest';
 
                 return `
                     <tr id="row-${t.id}" class="${unread ? 'row-unread' : ''}" 
@@ -964,7 +1068,7 @@
                                         }).join('')}
                                     </select>
                                 </div>
-                            ` : `<span>${t.completion_date || '-'}</span>`}
+                            ` : `<span>${completionDisplay}</span>`}
                         </td>
                         <td class="actions-cell ${!canEdit ? 'cell-readonly' : ''}">
                             <div class="action-cell-content">
@@ -983,7 +1087,7 @@
                         <td class="details-cell">
                             <div class="details-cell-content">
                             
-                            <textarea class="form-control ${isFieldUnread(t,'details') ? 'field-unread' : ''}" id="details-text-${t.id}" placeholder="توضیحات...">${t.details || ''}</textarea>
+                            <textarea class="form-control ${isFieldUnread(t,'details') ? 'field-unread' : ''}" id="details-text-${t.id}" placeholder="توضیحات..." ${readOnlyGuest ? 'disabled' : ''}>${t.details || ''}</textarea>
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
@@ -993,12 +1097,12 @@
                                 `).join('') : ''}
                             </div>
                             <div style="margin-top:6px;">
-                                <input type="file" id="new-file-${t.id}" class="form-control" style="font-size:0.75rem; padding:3px;" multiple onchange="autoUploadRow('${t.id}', this)">
+                                <input type="file" id="new-file-${t.id}" class="form-control" ${readOnlyGuest ? 'disabled' : ''} style="font-size:0.75rem; padding:3px;" multiple onchange="autoUploadRow('${t.id}', this)">
                                 <div id="upload-status-${t.id}" class="upload-status" hidden></div>
                             </div>
                             <div class="receipt-line">${receiptLineHtml(t)}</div>
                             <div style="margin-top:8px; text-align: left;">
-                                <button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>
+                                ${readOnlyGuest ? '' : `<button class="btn btn-success btn-sm" onclick="saveTaskRow('${t.id}')">💾 ذخیره تغییرات</button>`}
                             </div>
                             </div>
                         </td>
@@ -1016,6 +1120,7 @@
         }
 
         async function saveTaskRow(id) {
+            if (!currentUser || currentUser.role === 'guest') return;
             const t = tasks.find(x => String(x.id) === String(id)); if (!t) return;
             try {
                 const canEdit = currentUser.role === 'admin' || currentUser.role === 'user';
@@ -1141,7 +1246,11 @@
             }
         }
 
-        window.addEventListener('load', adjustActionHeights);
+        function convertPageDigits(){
+            const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+            while(n=walker.nextNode()) if(n.parentElement&&!['SCRIPT','STYLE'].includes(n.parentElement.tagName)) n.nodeValue=toFaDigits(n.nodeValue);
+        }
+        window.addEventListener('load', () => { adjustActionHeights(); convertPageDigits(); });
         window.addEventListener('resize', () => requestAnimationFrame(adjustActionHeights));
 
         // بررسی وضعیت ورود قبلی کاربر
@@ -1154,6 +1263,8 @@
                 loginAlertShown = false;
                 fetchTasks({showUnreadPopup:true});
                 startTaskSync();
+            } else {
+                resetLoginForm();
             }
         });
     </script>
