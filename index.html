@@ -434,13 +434,13 @@
             return days+d;
         }
         function getCompletionStatus(t){
-            if(Number(t.progress)>=100)return t.completion_date||'-';
+            if(Number(t.progress)>=100)return toFaDigits(t.completion_date||'-');
             const now=new Date(),j=toJalali(now.getFullYear(),now.getMonth()+1,now.getDate());
             const today=`${j.y}/${j.m}/${j.d}`, due=String(t.due_date||'').replace(/[^0-9/]/g,'');
             const parts=due.split('/'); let sub='';
             if(parts.length===3&&parts.every(v=>/^\d+$/.test(v))){
                 const diff=jalaliOrdinal(+parts[0],+parts[1],+parts[2])-jalaliOrdinal(j.y,j.m,j.d);
-                sub=diff>0?`${toFaDigits(diff)} روز مانده`:diff<0?`${toFaDigits(-diff)} روز تأخیر`:'امروز مهلت انجام';
+                sub=diff>0?`${toFaDigits(diff)} روز مانده`:diff<0?`${toFaDigits(-diff)} روز تأخیر`:'امروز مهلت است';
             }
             return `${toFaDigits(today)}${sub?`<br><small>${sub}</small>`:''}`;
         }
@@ -682,6 +682,26 @@
             return a||b;
         }
         function toFaDigits(v){return String(v??'').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)])}
+        function convertTextNodeDigits(node){
+            if(!node || node.nodeType!==Node.TEXT_NODE || !/[0-9]/.test(node.nodeValue||'')) return;
+            const parent=node.parentElement;
+            if(parent && (parent.closest('input, textarea, select, script, style, [contenteditable="true"]'))) return;
+            node.nodeValue=toFaDigits(node.nodeValue);
+        }
+        function convertDigitsInSubtree(root){
+            if(root.nodeType===Node.TEXT_NODE){convertTextNodeDigits(root);return;}
+            if(root.nodeType!==Node.ELEMENT_NODE && root.nodeType!==Node.DOCUMENT_NODE) return;
+            const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+            let n; while((n=walker.nextNode())) convertTextNodeDigits(n);
+        }
+        const digitObserver=new MutationObserver(records=>{
+            for(const record of records){
+                if(record.type==='characterData') convertTextNodeDigits(record.target);
+                else for(const node of record.addedNodes) convertDigitsInSubtree(node);
+            }
+        });
+        digitObserver.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+        document.addEventListener('DOMContentLoaded',()=>convertDigitsInSubtree(document.body),{once:true});
         function formatViewTime(iso){
             if(!iso||!Number.isFinite(Date.parse(iso)))return '';
             const d=new Date(iso),j=toJalali(d.getFullYear(),d.getMonth()+1,d.getDate());
@@ -1050,7 +1070,7 @@
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
                         <td class="completion-date-cell ${!canEdit ? 'cell-readonly' : ''}">
-                            ${canEdit ? `
+                            ${Number(t.progress)>=100 && canEdit ? `
                                 <div class="shamsi-group">
                                     <select id="comp-y-${t.id}">
                                         ${[1404, 1405, 1406, 1407].map(y => `<option value="${y}" ${compDateParts[0]==y?'selected':''}>${y}</option>`).join('')}
