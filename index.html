@@ -618,6 +618,7 @@
         }
         function isFileRead(task,index,file){
             if(!currentUser||!task||!file)return false;
+            if(file.uploader===currentUser.key||file.uploaded_by===currentUser.key||file.uploader===currentUser.username||file.uploaded_by===currentUser.username)return true;
             const stable=getFileSeenKey(task.id,file), remote=getServerFileSeen(task);
             const remoteEntry=remote[stable];
             if(remoteEntry&&typeof remoteEntry==='object'&&remoteEntry[currentUser.key])return true;
@@ -981,7 +982,7 @@
             xhr.onerror=()=>reject(new Error('خطای شبکه هنگام آپلود فایل'));xhr.onabort=()=>reject(new Error('آپلود لغو شد'));xhr.send(file);
         })}
         async function autoUploadRow(id,input){const t=tasks.find(x=>String(x.id)===String(id));if(!t||!input.files?.length)return;const widget=document.getElementById(`upload-status-${id}`);input.disabled=true;
-            try{for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));const files=[...(t.files||[]),uploaded];const {error}=await updateTask(id,{files});if(error)throw error;t.files=files;uploadWidget(widget,'success',100,'آپلود شد ✅');renderTable();}
+            try{for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));uploaded.uploader=currentUser.key;const files=[...(t.files||[]),uploaded];const {error}=await updateTask(id,{files});if(error)throw error;t.files=files;uploadWidget(widget,'success',100,'آپلود شد ✅');renderTable();}
             }catch(err){uploadWidget(widget,'error',0,`خطا: ${escapeHtml(err.message||err)}`);console.error(err)}finally{input.disabled=false}}
         async function ensureNewTaskDraft(){
             if(newTaskDraftId)return newTaskDraftId;
@@ -995,7 +996,7 @@
             if(result.error)throw result.error;newTaskDraftId=result.data.id;return newTaskDraftId;
         }
         async function autoUploadNewTask(input){const widget=document.getElementById('new-task-upload-status');if(!input.files?.length)return;input.disabled=true;
-            try{const draftId=await ensureNewTaskDraft();for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));newTaskUploaded.push(uploaded);const {error}=await updateTask(draftId,{files:[...newTaskUploaded]});if(error)throw error;uploadWidget(widget,'success',100,'آپلود شد ✅ — فایل در پایگاه داده ثبت شد');}}
+            try{const draftId=await ensureNewTaskDraft();for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));uploaded.uploader=currentUser.key;newTaskUploaded.push(uploaded);const {error}=await updateTask(draftId,{files:[...newTaskUploaded]});if(error)throw error;uploadWidget(widget,'success',100,'آپلود شد ✅ — فایل در پایگاه داده ثبت شد');}}
             catch(err){uploadWidget(widget,'error',0,`خطا: ${escapeHtml(err.message||err)}`);console.error(err)}finally{input.disabled=false}}
 
         function updateStatusSummary() {
@@ -1265,6 +1266,7 @@
                 const description=document.getElementById('task-desc').value, assignee=document.getElementById('task-assignee').value, details=document.getElementById('task-details').value;
                 const created_date=`${document.getElementById('reg-y').value}/${document.getElementById('reg-m').value.padStart(2,'0')}/${document.getElementById('reg-d').value.padStart(2,'0')}`;
                 const due_date=`${document.getElementById('due-y').value}/${document.getElementById('due-m').value.padStart(2,'0')}/${document.getElementById('due-d').value.padStart(2,'0')}`;
+                newTaskUploaded=newTaskUploaded.map(f=>({...f,uploader:f.uploader||currentUser.key}));
                 const now=new Date().toISOString(), record={description,assignee,created_date,due_date,details,files:newTaskUploaded,progress:0,actions:'',completion_date:'',order_index:tasks.length+1,updated_at:now,updated_by:currentUser.key};
                 let result; if(newTaskDraftId){result=await updateTask(newTaskDraftId,record)}else{result=await db.from('tasks').insert([record]);if(result.error && /updated_at|updated_by|column/i.test(result.error.message)){delete record.updated_at;delete record.updated_by;result=await db.from('tasks').insert([record])}}
                 if(result.error) throw result.error;
