@@ -269,7 +269,7 @@
     <div id="login-modal">
         <div class="login-box">
             <h2>ورود به سامانه اسفندیار</h2>
-            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود تمام کاربران   با رمز  و مهمان بدون رمز امکان‌پذیر است.</p>
+            <p style="font-size: 0.78rem; color: #dc2626; margin-bottom: 12px;">توجه: ورود تمام کاربران (مدیر پروژه و کاربران عادی) فقط با رمز عبور امکان‌پذیر است.</p>
             <div style="background-color: #fef9c3; border: 1px solid #facc15; border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px; color: #1d4ed8; font-size: 13px; line-height: 1.9; direction: rtl; text-align: center;">
     💡 این صفحه برای مشاهده در کامپیوتر طراحی شده است. برای استفاده در گوشی موبایل، از منوی تنظیمات مرورگر گزینه Desktop View (نمایش دسکتاپ) را انتخاب کنید.
 </div>
@@ -622,15 +622,19 @@
             // Dedicated file_seen JSONB is authoritative; never mix receipts from another task.
             return normalizeFileSeenMap(task&&task.file_seen);
         }
+        function fileUserIds(user){
+            if(!user)return [];
+            return [...new Set([user.key,user.username,user.id,user.email].filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim().toLowerCase()))];
+        }
         function isFileRead(task,index,file){
             if(!currentUser||!task||!file)return false;
-            if(file.uploader===currentUser.key||file.uploaded_by===currentUser.key||file.uploader===currentUser.username||file.uploaded_by===currentUser.username)return true;
-            const stable=getFileSeenKey(task.id,file), remote=getServerFileSeen(task);
-            const remoteEntry=remote[stable];
-            if(remoteEntry&&typeof remoteEntry==='object'&&remoteEntry[currentUser.key])return true;
-            // Legacy browser records are used only when the server has no matching receipt.
-            const store=readStore(FILE_SEEN_KEY), local=store[stable], legacy=store[`${task.id}:${index}`];
-            return !!((local&&typeof local==='object'&&local[currentUser.key])||(legacy&&typeof legacy==='object'&&legacy[currentUser.key]));
+            const ids=fileUserIds(currentUser);
+            const uploaderIds=[file.uploader,file.uploaded_by,file.uploadedBy,file.uploadedby,file.created_by,file.createdBy]
+                .filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim().toLowerCase());
+            if(uploaderIds.some(id=>ids.includes(id)))return true;
+            const stable=getFileSeenKey(task.id,file), remote=getServerFileSeen(task), store=readStore(FILE_SEEN_KEY);
+            const entries=[remote[stable],store[stable],store[`${task.id}:${index}`]];
+            return entries.some(entry=>entry&&typeof entry==='object'&&ids.some(id=>entry[id]));
         }
         function saveLocalFileReceipt(taskId,stable,stamp){
             const store=readStore(FILE_SEEN_KEY);
@@ -988,7 +992,7 @@
             xhr.onerror=()=>reject(new Error('خطای شبکه هنگام آپلود فایل'));xhr.onabort=()=>reject(new Error('آپلود لغو شد'));xhr.send(file);
         })}
         async function autoUploadRow(id,input){const t=tasks.find(x=>String(x.id)===String(id));if(!t||!input.files?.length)return;const widget=document.getElementById(`upload-status-${id}`);input.disabled=true;
-            try{for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));uploaded.uploader=currentUser.key;const files=[...(t.files||[]),uploaded];const {error}=await updateTask(id,{files});if(error)throw error;t.files=files;uploadWidget(widget,'success',100,'آپلود شد ✅');renderTable();}
+            try{for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));uploaded.uploader=currentUser.key;uploaded.uploaded_by=currentUser.key;uploaded.uploadedBy=currentUser.username||currentUser.key;const files=[...(t.files||[]),uploaded];const {error}=await updateTask(id,{files});if(error)throw error;t.files=files;uploadWidget(widget,'success',100,'آپلود شد ✅');renderTable();}
             }catch(err){uploadWidget(widget,'error',0,`خطا: ${escapeHtml(err.message||err)}`);console.error(err)}finally{input.disabled=false}}
         async function ensureNewTaskDraft(){
             if(newTaskDraftId)return newTaskDraftId;
@@ -1002,7 +1006,7 @@
             if(result.error)throw result.error;newTaskDraftId=result.data.id;return newTaskDraftId;
         }
         async function autoUploadNewTask(input){const widget=document.getElementById('new-task-upload-status');if(!input.files?.length)return;input.disabled=true;
-            try{const draftId=await ensureNewTaskDraft();for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));uploaded.uploader=currentUser.key;newTaskUploaded.push(uploaded);const {error}=await updateTask(draftId,{files:[...newTaskUploaded]});if(error)throw error;uploadWidget(widget,'success',100,'آپلود شد ✅ — فایل در پایگاه داده ثبت شد');}}
+            try{const draftId=await ensureNewTaskDraft();for(const file of Array.from(input.files)){uploadWidget(widget,'progress',0,`در حال آپلود ${escapeHtml(file.name)}`);const uploaded=await uploadToStorage(file,p=>uploadWidget(widget,'progress',p,`در حال آپلود ${escapeHtml(file.name)}`));uploaded.uploader=currentUser.key;uploaded.uploaded_by=currentUser.key;uploaded.uploadedBy=currentUser.username||currentUser.key;newTaskUploaded.push(uploaded);const {error}=await updateTask(draftId,{files:[...newTaskUploaded]});if(error)throw error;uploadWidget(widget,'success',100,'آپلود شد ✅ — فایل در پایگاه داده ثبت شد');}}
             catch(err){uploadWidget(widget,'error',0,`خطا: ${escapeHtml(err.message||err)}`);console.error(err)}finally{input.disabled=false}}
 
         function updateStatusSummary() {
