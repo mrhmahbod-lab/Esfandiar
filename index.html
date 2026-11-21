@@ -1037,14 +1037,14 @@
             if(!navigator.mediaDevices?.getUserMedia){alert('ضبط صوت در این مرورگر در دسترس نیست. از دکمه انتخاب فایل صوتی استفاده کنید.');return;}
             try{
                 const stream=await navigator.mediaDevices.getUserMedia({audio:true}), chunks=[];
-                const supported=['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+                const supported=['audio/webm;codecs=opus','audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/ogg;codecs=opus','audio/webm'];
                 const mimeType=supported.find(type=>MediaRecorder.isTypeSupported(type));
                 const rec=mimeType?new MediaRecorder(stream,{mimeType}):new MediaRecorder(stream);
                 activeVoiceRecordings.set(id,rec);
                 rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
                 rec.onstop=async()=>{
                     stream.getTracks().forEach(x=>x.stop());activeVoiceRecordings.delete(id);button.textContent='🎙 ضبط صوت';button.classList.remove('recording');
-                    try{const type=rec.mimeType||mimeType||'audio/webm';await uploadVoiceBlob(id,new Blob(chunks,{type}));}
+                    try{const type=rec.mimeType||mimeType||chunks.find(chunk=>chunk.type)?.type||'audio/webm';await uploadVoiceBlob(id,new Blob(chunks,{type}));}
                     catch(err){alert('خطا در ذخیره پیام صوتی: '+(err.message||err));}
                 };
                 rec.start(250);button.textContent='⏹ پایان ضبط';button.classList.add('recording');
