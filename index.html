@@ -880,7 +880,7 @@
                     const field_seen=normalizeSeenMap(latest.field_seen);
                     for(const field of TRACKED_FIELDS){
                         const info=field_meta[field];
-                        if(info?.at){field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:info.at};}
+                        if(info?.at){field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:clickStamp};}
                     }
                     let query=db.from('tasks').update({seen_by:seen,field_seen}).eq('id',id);
                     if(latest.updated_at)query=query.eq('updated_at',latest.updated_at);
