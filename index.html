@@ -603,7 +603,7 @@
         function showUnreadPopup(errorMessage=''){
             if(loginAlertShown || !currentUser || currentUser.role==='guest') return;
             loginAlertShown = true;
-            const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
+            const unreadTasks=tasks.reduce((sum,t)=>sum+getUnreadMessageCount(t),0);
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
             const modal=document.getElementById('unread-warning-modal'), text=document.getElementById('unread-warning-text');
             if(text)text.innerHTML=`شما <span class="unread-warning-count ${unreadTasks>0?'has-unread':''}">${unreadTasks}</span> پیام دیده‌نشده و <span class="unread-warning-count ${unreadFiles>0?'has-unread':''}">${unreadFiles}</span> فایل بازنشده دارید`;
@@ -682,7 +682,7 @@
         function refreshUnreadPopupCounts(){
             const modal=document.getElementById('unread-warning-modal');
             if(!modal||!modal.classList.contains('is-visible')||!currentUser)return;
-            const unreadTasks=tasks.filter(t=>{const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t));}).length;
+            const unreadTasks=tasks.reduce((sum,t)=>sum+getUnreadMessageCount(t),0);
             const unreadFiles=tasks.reduce((sum,t)=>sum+(Array.isArray(t.files)?t.files.filter((f,i)=>!isFileRead(t,i,f)).length:0),0);
             const text=document.getElementById('unread-warning-text');
             if(text)text.innerHTML=`شما <span class="unread-warning-count ${unreadTasks>0?'has-unread':''}">${unreadTasks}</span> پیام دیده‌نشده و <span class="unread-warning-count ${unreadFiles>0?'has-unread':''}">${unreadFiles}</span> فایل بازنشده دارید`;
@@ -693,6 +693,13 @@
         function getSeenMap(t){const merged={...normalizeSeenMap(t.seen_by)},local=readStore(SEEN_KEY)[String(t.id)]||{};for(const [key,stamp] of Object.entries(local))if(!merged[key]||Date.parse(stamp)>=Date.parse(merged[key]))merged[key]=stamp;return merged}
         function sameInstant(a,b){const x=Date.parse(a),y=Date.parse(b);return Number.isFinite(x)&&Number.isFinite(y)&&x===y}
         function isTaskSeen(t){const meta=getTaskMeta(t),stamp=getSeenMap(t)[currentUser.key];return !!(meta.updated_at&&stamp&&sameInstant(stamp,meta.updated_at))}
+        function getUnreadMessageCount(t){
+            if(!currentUser||currentUser.role==='guest')return 0;
+            return ['actions','description','progress'].reduce((n,field)=>n+(isFieldUnread(t,field)?1:0),0);
+        }
+        function hasUnreadFiles(t){return Array.isArray(t?.files)&&t.files.some((f,i)=>!isFileRead(t,i,f));}
+        function rowHasUnreadAlert(t){return hasUnreadFiles(t)||['actions','description','progress'].some(field=>isFieldUnread(t,field));}
+
         function getSeenSummary(t){const meta=getTaskMeta(t),seen=getSeenMap(t);const key=Object.keys(seen).find(k=>k!==meta.updated_by&&sameInstant(seen[k],meta.updated_at));return key?(USERS[key]?.name||key):''}
         // --- ثبت و نمایش تاریخ/ساعت دقیق «مشاهده شد / تایید مشاهده» ---
         // زمان کلیک هر کاربر در همان ستون seen_by (JSONB) با کلید '@at:<user>' ذخیره می‌شود
@@ -1022,10 +1029,7 @@
             const total = list.length;
             const completed = list.filter(t => Number(t.progress) >= 100).length;
             const average = total ? Math.round(list.reduce((sum, t) => sum + Math.max(0, Math.min(100, Number(t.progress) || 0)), 0) / total) : 0;
-            const unread = list.filter(t => {
-                const meta = getTaskMeta(t);
-                return !!(meta.updated_at && meta.updated_by && currentUser && meta.updated_by !== currentUser.key && !isTaskSeen(t));
-            }).length;
+            const unread = list.reduce((sum, t) => sum + getUnreadMessageCount(t), 0);
             document.getElementById('summary-total').textContent = total.toLocaleString('fa-IR');
             document.getElementById('summary-completed').textContent = completed.toLocaleString('fa-IR');
             document.getElementById('summary-average').textContent = average.toLocaleString('fa-IR') + '٪';
@@ -1077,7 +1081,7 @@
                 const userObj = USERS[t.assignee];
                 const assigneeDisp = userObj ? `<span style="font-weight:700;font-size:0.82rem;white-space:nowrap;">${userObj.name}</span><span style="font-size:0.75rem;color:#475569;white-space:nowrap;">(${userObj.title})</span>` : `<span style="white-space:nowrap;">${t.assignee}</span>`;
                 const meta = getTaskMeta(t);
-                const unread = !!(meta.updated_at && meta.updated_by && meta.updated_by !== currentUser.key && !isTaskSeen(t));
+                const unread = rowHasUnreadAlert(t);
                 const seenByOther = !!(meta.updated_at && meta.updated_by === currentUser.key && getSeenSummary(t));
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
                 const completionDisplay = getCompletionStatus(t);
@@ -1102,7 +1106,7 @@
                                 ` : ''}
                             </div>
                         </td>
-                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${(unread||isFieldUnread(t,'description')) ? 'task-text-unread' : ''}">${t.description || '-'}</span></td>
+                        <td class="cell-readonly"><span id="task-description-${t.id}" class="${rowHasUnreadAlert(t) ? 'task-text-unread' : ''}">${t.description || '-'}</span></td>
                         <td class="cell-readonly" style="vertical-align:middle;text-align:center;"><div class="assignee-badge-box" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 8px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;">${assigneeDisp}</div></td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.created_date || '-'}</td>
                         <td class="cell-readonly" style="white-space:nowrap;">${t.due_date || '-'}</td>
