@@ -212,7 +212,7 @@
             .summary-mark { width:30px; height:30px; }
             .summary-label { font-size:.7rem; }
         }
-            .voice-unread-summary .summary-value{color:#be123c}.voice-controls{display:flex;gap:6px;align-items:center;margin:4px 0}.voice-upload-input{font-size:.72rem;max-width:180px}.voice-record-btn.recording{background:#dc2626!important;color:#fff;animation:warning-blink .8s steps(2,start) infinite}.voice-message{width:280px;height:32px;vertical-align:middle}.voice-unread{outline:2px solid #dc2626;border-radius:8px;animation:field-unread-pulse 1s ease-in-out infinite}.voice-label{font-size:.72rem;color:#7f1d1d;font-weight:700;margin-right:3px}
+            .voice-unread-summary .summary-value{color:#be123c}.voice-controls{display:flex;gap:6px;align-items:center;margin:4px 0}.voice-upload-input{font-size:.72rem;max-width:180px}.voice-record-btn.recording{background:#dc2626!important;color:#fff;animation:warning-blink .8s steps(2,start) infinite}.voice-message{width:280px;max-width:100%;height:36px;vertical-align:middle}.voice-unread{outline:2px solid #dc2626;border-radius:8px;animation:field-unread-pulse 1s ease-in-out infinite}.voice-label{font-size:.72rem;color:#7f1d1d;font-weight:700;margin-right:3px}
 </style>
 </head>
 <body>
@@ -1037,17 +1037,24 @@
             if(!navigator.mediaDevices?.getUserMedia){alert('ضبط صوت در این مرورگر در دسترس نیست. از دکمه انتخاب فایل صوتی استفاده کنید.');return;}
             try{
                 const stream=await navigator.mediaDevices.getUserMedia({audio:true}), chunks=[];
-                const supported=['audio/webm;codecs=opus','audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/ogg;codecs=opus','audio/webm'];
+                const supported=['audio/webm;codecs=opus','audio/webm','audio/mp4'];
                 const mimeType=supported.find(type=>MediaRecorder.isTypeSupported(type));
                 const rec=mimeType?new MediaRecorder(stream,{mimeType}):new MediaRecorder(stream);
                 activeVoiceRecordings.set(id,rec);
-                rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+                rec.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};
+                rec.onerror=e=>{console.error('MediaRecorder error',e.error||e);};
                 rec.onstop=async()=>{
                     stream.getTracks().forEach(x=>x.stop());activeVoiceRecordings.delete(id);button.textContent='🎙 ضبط صوت';button.classList.remove('recording');
-                    try{const type=rec.mimeType||mimeType||chunks.find(chunk=>chunk.type)?.type||'audio/webm';await uploadVoiceBlob(id,new Blob(chunks,{type}));}
-                    catch(err){alert('خطا در ذخیره پیام صوتی: '+(err.message||err));}
+                    try{
+                        const type=rec.mimeType||mimeType||(chunks.find(x=>x.type)?.type)||'audio/webm';
+                        const completeChunks=chunks.filter(chunk=>chunk&&chunk.size>0);
+                        if(!completeChunks.length)throw new Error('هیچ دادهٔ صوتی از ضبط دریافت نشد.');
+                        const blob=new Blob(completeChunks,{type});
+                        if(!blob.size)throw new Error('فایل صوتی ضبط‌شده خالی است.');
+                        await uploadVoiceBlob(id,blob);
+                    }catch(err){alert('خطا در ذخیره پیام صوتی: '+(err.message||err));}
                 };
-                rec.start(250);button.textContent='⏹ پایان ضبط';button.classList.add('recording');
+                rec.start();button.textContent='⏹ پایان ضبط';button.classList.add('recording');
             }catch(err){alert('دسترسی به میکروفون ممکن نشد: '+(err.message||err));}
         }
 
@@ -1184,7 +1191,7 @@
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
-                                        ${isVoiceFile(f) ? `<audio class="voice-message ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'voice-read':'voice-unread')}" controls preload="none" src="${f.url}" onclick="markFileRead('${t.id}', ${fIdx}, event)" title="پیام صوتی"></audio><span class="voice-label">🎙 پیام صوتی</span>` : `<a href="${f.url}" target="_blank" rel="noopener" class="file-link ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'file-read':'file-unread')}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${f.name}</a>`}
+                                        ${isVoiceFile(f) ? `<audio class="voice-message ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'voice-read':'voice-unread')}" controls preload="metadata" src="${f.url}" onloadedmetadata="if(!Number.isFinite(this.duration)||this.duration<=0){this.title='مدت صوت قابل خواندن نیست';}" onerror="this.title='بارگذاری صوت ناموفق بود؛ دوباره تلاش کنید';" onclick="markFileRead('${t.id}', ${fIdx}, event)" title="پیام صوتی"></audio><span class="voice-label">🎙 پیام صوتی</span>` : `<a href="${f.url}" target="_blank" rel="noopener" class="file-link ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'file-read':'file-unread')}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${f.name}</a>`}
                                         ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
                                     </div>
                                 `).join('') : ''}
