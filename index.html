@@ -757,6 +757,13 @@
             }
             return best;
         }
+        function getFileReceiptLabels(t,file,index){
+            const stable=getFileSeenKey(t.id,file), remote=getServerFileSeen(t), local=readStore(FILE_SEEN_KEY);
+            const entries=[remote[stable],local[stable],local[`${t.id}:${index}`]];
+            const latest={};
+            for(const entry of entries)if(entry&&typeof entry==='object')for(const [key,stamp] of Object.entries(entry))if(validStamp(stamp)&&(!latest[key]||Date.parse(stamp)>Date.parse(latest[key])))latest[key]=stamp;
+            return Object.entries(latest).map(([key,stamp])=>`${(USERS[key]&&USERS[key].name)||key} — ${formatViewTime(stamp)}`).join(' · ');
+        }
         function buildReceiptParts(t){
             const meta=getTaskMeta(t);
             const seenCurrent=isTaskSeen(t);
@@ -1152,7 +1159,8 @@
                             <div style="margin-top:6px;">
                                 ${Array.isArray(t.files) ? t.files.map((f, fIdx) => `
                                     <div style="display:inline-flex; align-items:center; gap:4px; margin:2px;">
-                                        <a href="${f.url}" target="_blank" rel="noopener" class="file-link ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'file-read':'file-unread')}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${f.name}</a>
+                                        <a href="${f.url}" target="_blank" rel="noopener" class="file-link ${readOnlyGuest?'':(isFileRead(t,fIdx,f)?'file-read':'file-unread')}" onclick="markFileRead('${t.id}', ${fIdx}, event)">📎 ${escapeHtml(f.name)}</a>
+                                        ${getFileReceiptLabels(t,f,fIdx) ? `<span class="seen-time resolved" aria-label="رسید مشاهده فایل">🕒 ${escapeHtml(getFileReceiptLabels(t,f,fIdx))}</span>` : ''}
                                         ${isAdmin ? `<button type="button" class="btn btn-danger" style="padding:1px 4px;font-size:0.65rem;" onclick="removeFile('${t.id}', ${fIdx})">×</button>` : ''}
                                     </div>
                                 `).join('') : ''}
