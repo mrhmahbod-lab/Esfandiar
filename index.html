@@ -860,7 +860,7 @@
             rememberViewTime(t,clickStamp);
             if(!db){
                 saveLocalTaskReceipt(t,meta);console.warn('رسید مشاهده فقط محلی ثبت شد: اتصال پایگاه داده در دسترس نیست.');
-                updateReceiptBadge(t);renderTable();return;
+                acknowledgeRequestedFieldsLocally(t,clickStamp);updateReceiptBadge(t);renderTable();return;
             }
             try{
                 // Read the latest row, merge this user's receipt into its JSONB map, then write
@@ -878,7 +878,9 @@
                     seen[SEEN_AT_PREFIX+currentUser.key]=clickStamp;
                     const field_meta=normalizeSeenMap(latest.field_meta);
                     const field_seen=normalizeSeenMap(latest.field_seen);
-                    for(const field of TRACKED_FIELDS){
+                    // Row confirmation clears alerts for progress, action text, and activity description.
+                    // File and voice receipts remain independent and require direct clicks.
+                    for(const field of ['progress','actions','description']){
                         const info=field_meta[field];
                         if(info?.at){field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:clickStamp};}
                     }
@@ -896,10 +898,15 @@
                 // Re-render from the returned server row so every field border clears together.
                 renderTable();
             }catch(err){
-                saveLocalTaskReceipt(t,meta);rememberViewTime(t,clickStamp);
+                saveLocalTaskReceipt(t,meta);rememberViewTime(t,clickStamp);acknowledgeRequestedFieldsLocally(t,clickStamp);
                 console.warn('ثبت رسید مستقیم در جدول tasks ناموفق بود؛ رسید در این مرورگر به‌صورت محلی نگهداری شد.',err);
-                updateReceiptBadge(t);
+                updateReceiptBadge(t);renderTable();
             }
+        }
+        function acknowledgeRequestedFieldsLocally(t,stamp){
+            const seen=normalizeSeenMap(t.field_seen),meta=normalizeSeenMap(t.field_meta);
+            for(const field of ['progress','actions','description'])if(meta[field]?.at)seen[field]={...(seen[field]||{}),[currentUser.key]:stamp};
+            t.field_seen=seen;
         }
         function saveLocalTaskReceipt(t,meta){
             const all=readStore(SEEN_KEY),key=String(t.id);all[key]=all[key]||{};all[key][currentUser.key]=meta.updated_at;writeStore(SEEN_KEY,all);
