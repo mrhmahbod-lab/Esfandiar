@@ -631,7 +631,9 @@
             return [...new Set([user.key,user.username,user.id,user.email].filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim().toLowerCase()))];
         }
         function isFileRead(task,index,file){
-            if(!currentUser||!task||!file)return false;
+            // File unread markers and counters belong only to the task assignee.
+            if(!currentUser||!task||!file)return true;
+            if(!isCurrentAssignee(task))return true;
             const ids=fileUserIds(currentUser);
             const uploaderIds=[file.uploader,file.uploaded_by,file.uploadedBy,file.uploadedby,file.created_by,file.createdBy]
                 .filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim().toLowerCase());
@@ -693,13 +695,21 @@
         }
         
         function isVoiceFile(file){return !!(file&&(file.kind==='voice'||file.type==='voice'||String(file.mime||file.contentType||'').toLowerCase().startsWith('audio/')));}
+        function isCurrentAssignee(t){
+            return !!(currentUser&&t&&String(t.assignee||'').trim().toLowerCase()===String(currentUser.key||'').trim().toLowerCase());
+        }
         function isClearingOnlyUpdate(t){
             const meta=getTaskMeta(t), fm=getFieldMeta(t);
             if(!meta.updated_at||!meta.updated_by)return false;
-            const entries=TRACKED_FIELDS.map(f=>fm[f]).filter(Boolean);
-            return entries.length>0 && entries.every(info=>info.by===meta.updated_by && info.cleared===true && info.at===meta.updated_at);
+            // Only metadata written by this revision is relevant; older field metadata
+            // must not turn a later mixed update into a clearing-only update.
+            const entries=TRACKED_FIELDS.map(f=>fm[f]).filter(info=>info&&info.at===meta.updated_at);
+            return entries.length>0 && entries.every(info=>info.by===meta.updated_by && info.cleared===true);
         }
-        function isTaskUnread(t){const m=getTaskMeta(t);return !!(currentUser&&t&&t.assignee===currentUser.key&&m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t)&&!isClearingOnlyUpdate(t));}
+        function isTaskUnread(t){
+            const m=getTaskMeta(t);
+            return !!(isCurrentAssignee(t)&&m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t)&&!isClearingOnlyUpdate(t));
+        }
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
         function getSeenMap(t){const merged={...normalizeSeenMap(t.seen_by)},local=readStore(SEEN_KEY)[String(t.id)]||{};for(const [key,stamp] of Object.entries(local))if(!merged[key]||Date.parse(stamp)>=Date.parse(merged[key]))merged[key]=stamp;return merged}
@@ -809,10 +819,10 @@
         function getFieldMeta(t){return normalizeSeenMap(t?.field_meta)}
         function getFieldSeen(t){return normalizeSeenMap(t?.field_seen)}
         function isFieldUnread(t,field){
-            if(!currentUser||currentUser.role==='guest')return false;
+            if(!currentUser||currentUser.role==='guest'||!isCurrentAssignee(t)||isClearingOnlyUpdate(t))return false;
             const meta=getFieldMeta(t)[field];
             if(!t || (field!=='progress' && String(t[field]??'').trim()===''))return false;
-            if(meta&&meta.at){
+            if(meta&&meta.at&&!meta.cleared){
                 const stamp=getFieldSeen(t)[field]?.[currentUser.key];
                 const seenAt=Date.parse(stamp), changedAt=Date.parse(meta.at);
                 return !(Number.isFinite(seenAt)&&Number.isFinite(changedAt)&&seenAt>=changedAt);
