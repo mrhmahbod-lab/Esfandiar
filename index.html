@@ -699,7 +699,7 @@
             const entries=TRACKED_FIELDS.map(f=>fm[f]).filter(Boolean);
             return entries.length>0 && entries.every(info=>info.by===meta.updated_by && info.cleared===true && info.at===meta.updated_at);
         }
-        function isTaskUnread(t){const m=getTaskMeta(t);return !!(m.updated_at&&m.updated_by&&currentUser&&m.updated_by!==currentUser.key&&!isTaskSeen(t)&&!isClearingOnlyUpdate(t));}
+        function isTaskUnread(t){const m=getTaskMeta(t);return !!(currentUser&&t&&t.assignee===currentUser.key&&m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t)&&!isClearingOnlyUpdate(t));}
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
         function getSeenMap(t){const merged={...normalizeSeenMap(t.seen_by)},local=readStore(SEEN_KEY)[String(t.id)]||{};for(const [key,stamp] of Object.entries(local))if(!merged[key]||Date.parse(stamp)>=Date.parse(merged[key]))merged[key]=stamp;return merged}
@@ -765,7 +765,7 @@
         function buildReceiptParts(t){
             const meta=getTaskMeta(t);
             const seenCurrent=isTaskSeen(t);
-            const unread=!!(meta.updated_at&&meta.updated_by&&meta.updated_by!==currentUser.key&&!seenCurrent);
+            const unread=isTaskUnread(t);
             const isAuthor=!!(meta.updated_at&&meta.updated_by===currentUser.key);
             const other=getCounterpartView(t);
             const otherTime=other?formatViewTime(other.at):'';
@@ -1100,7 +1100,7 @@
                 const userObj = USERS[t.assignee];
                 const assigneeDisp = userObj ? `<span style="font-weight:700;font-size:0.82rem;white-space:nowrap;">${userObj.name}</span><span style="font-size:0.75rem;color:#475569;white-space:nowrap;">(${userObj.title})</span>` : `<span style="white-space:nowrap;">${t.assignee}</span>`;
                 const meta = getTaskMeta(t);
-                const unread = !!(meta.updated_at && meta.updated_by && meta.updated_by !== currentUser.key && !isTaskSeen(t));
+                const unread = isTaskUnread(t);
                 const seenByOther = !!(meta.updated_at && meta.updated_by === currentUser.key && getSeenSummary(t));
                 const compDateParts = (t.completion_date || '1405/01/01').split('/');
                 const completionDisplay = getCompletionStatus(t);
