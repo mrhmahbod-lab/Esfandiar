@@ -858,9 +858,19 @@
             const meta=getTaskMeta(t);if(!meta.updated_at)return;
             const clickStamp=new Date().toISOString();
             rememberViewTime(t,clickStamp);
+            // Acknowledge every file/voice attachment in the row in the same action.
+            const localFileStore=readStore(FILE_SEEN_KEY);
+            for(const [index,file] of (Array.isArray(t.files)?t.files:[]).entries()){
+                const stable=getFileSeenKey(t.id,file);
+                localFileStore[stable]=localFileStore[stable]&&typeof localFileStore[stable]==='object'?localFileStore[stable]:{};
+                localFileStore[stable][currentUser.key]=clickStamp;
+                localFileStore[`${t.id}:${index}`]=localFileStore[`${t.id}:${index}`]&&typeof localFileStore[`${t.id}:${index}`]==='object'?localFileStore[`${t.id}:${index}`]:{};
+                localFileStore[`${t.id}:${index}`][currentUser.key]=clickStamp;
+            }
+            writeStore(FILE_SEEN_KEY,localFileStore);
             if(!db){
                 saveLocalTaskReceipt(t,meta);console.warn('رسید مشاهده فقط محلی ثبت شد: اتصال پایگاه داده در دسترس نیست.');
-                updateReceiptBadge(t);renderTable();return;
+                updateReceiptBadge(t);renderTable();refreshUnreadPopupCounts();return;
             }
             try{
                 // Read the latest row, merge this user's receipt into its JSONB map, then write
@@ -878,11 +888,19 @@
                     seen[SEEN_AT_PREFIX+currentUser.key]=clickStamp;
                     const field_meta=normalizeSeenMap(latest.field_meta);
                     const field_seen=normalizeSeenMap(latest.field_seen);
+                    const file_seen=normalizeFileSeenMap(latest.file_seen);
+                    for(const [fileIndex,file] of (Array.isArray(latest.files)?latest.files:[]).entries()){
+                        const stable=getFileSeenKey(latest.id,file);
+                        file_seen[stable]=file_seen[stable]&&typeof file_seen[stable]==='object'?file_seen[stable]:{};
+                        file_seen[stable][currentUser.key]=clickStamp;
+                        file_seen[`${latest.id}:${fileIndex}`]=file_seen[`${latest.id}:${fileIndex}`]&&typeof file_seen[`${latest.id}:${fileIndex}`]==='object'?file_seen[`${latest.id}:${fileIndex}`]:{};
+                        file_seen[`${latest.id}:${fileIndex}`][currentUser.key]=clickStamp;
+                    }
                     for(const field of TRACKED_FIELDS){
                         const info=field_meta[field];
                         if(info?.at){field_seen[field]={...(field_seen[field]||{}),[currentUser.key]:clickStamp};}
                     }
-                    let query=db.from('tasks').update({seen_by:seen,field_seen}).eq('id',id);
+                    let query=db.from('tasks').update({seen_by:seen,field_seen,file_seen}).eq('id',id);
                     if(latest.updated_at)query=query.eq('updated_at',latest.updated_at);
                     const written=await query.select('*').maybeSingle();
                     if(written.error)throw written.error;
@@ -898,7 +916,7 @@
             }catch(err){
                 saveLocalTaskReceipt(t,meta);rememberViewTime(t,clickStamp);
                 console.warn('ثبت رسید مستقیم در جدول tasks ناموفق بود؛ رسید در این مرورگر به‌صورت محلی نگهداری شد.',err);
-                updateReceiptBadge(t);
+                updateReceiptBadge(t);renderTable();refreshUnreadPopupCounts();
             }
         }
         function saveLocalTaskReceipt(t,meta){
