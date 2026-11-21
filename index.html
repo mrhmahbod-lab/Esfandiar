@@ -631,9 +631,7 @@
             return [...new Set([user.key,user.username,user.id,user.email].filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim().toLowerCase()))];
         }
         function isFileRead(task,index,file){
-            // File unread markers and counters belong only to the task assignee.
-            if(!currentUser||!task||!file)return true;
-            if(!isCurrentAssignee(task))return true;
+            if(!currentUser||!task||!file)return false;
             const ids=fileUserIds(currentUser);
             const uploaderIds=[file.uploader,file.uploaded_by,file.uploadedBy,file.uploadedby,file.created_by,file.createdBy]
                 .filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim().toLowerCase());
@@ -695,21 +693,13 @@
         }
         
         function isVoiceFile(file){return !!(file&&(file.kind==='voice'||file.type==='voice'||String(file.mime||file.contentType||'').toLowerCase().startsWith('audio/')));}
-        function isCurrentAssignee(t){
-            return !!(currentUser&&t&&String(t.assignee||'').trim().toLowerCase()===String(currentUser.key||'').trim().toLowerCase());
-        }
         function isClearingOnlyUpdate(t){
             const meta=getTaskMeta(t), fm=getFieldMeta(t);
             if(!meta.updated_at||!meta.updated_by)return false;
-            // Only metadata written by this revision is relevant; older field metadata
-            // must not turn a later mixed update into a clearing-only update.
             const entries=TRACKED_FIELDS.map(f=>fm[f]).filter(info=>info&&info.at===meta.updated_at);
-            return entries.length>0 && entries.every(info=>info.by===meta.updated_by && info.cleared===true);
+            return entries.length>0 && entries.every(info=>info.by===meta.updated_by && (info.cleared===true || String(t?.[TRACKED_FIELDS.find(f=>fm[f]===info)]??'').trim()===''));
         }
-        function isTaskUnread(t){
-            const m=getTaskMeta(t);
-            return !!(isCurrentAssignee(t)&&m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t)&&!isClearingOnlyUpdate(t));
-        }
+        function isTaskUnread(t){const m=getTaskMeta(t), managerAuthor=(m.updated_by==='mahbod'||m.updated_by===(USERS.mahbod&&USERS.mahbod.name));return !!(currentUser&&t&&t.assignee===currentUser.key&&!(managerAuthor&&t.assignee==='mahbod')&&m.updated_at&&m.updated_by&&m.updated_by!==currentUser.key&&!isTaskSeen(t)&&!isClearingOnlyUpdate(t));}
         function getTaskMeta(t){const local=readStore(META_KEY)[String(t.id)]||{};return {updated_at:t.updated_at||local.updated_at||'',updated_by:t.updated_by||local.updated_by||''}}
         function normalizeSeenMap(value){if(typeof value==='string'){try{value=JSON.parse(value)}catch(_){value={}}}return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
         function getSeenMap(t){const merged={...normalizeSeenMap(t.seen_by)},local=readStore(SEEN_KEY)[String(t.id)]||{};for(const [key,stamp] of Object.entries(local))if(!merged[key]||Date.parse(stamp)>=Date.parse(merged[key]))merged[key]=stamp;return merged}
@@ -819,10 +809,12 @@
         function getFieldMeta(t){return normalizeSeenMap(t?.field_meta)}
         function getFieldSeen(t){return normalizeSeenMap(t?.field_seen)}
         function isFieldUnread(t,field){
-            if(!currentUser||currentUser.role==='guest'||!isCurrentAssignee(t)||isClearingOnlyUpdate(t))return false;
+            if(!currentUser||currentUser.role==='guest')return false;
             const meta=getFieldMeta(t)[field];
             if(!t || (field!=='progress' && String(t[field]??'').trim()===''))return false;
-            if(meta&&meta.at&&!meta.cleared){
+            if(meta && meta.cleared===true && String(t[field]??'').trim()==='')return false;
+            if(meta && meta.by && (meta.by==='mahbod' || meta.by===(USERS.mahbod&&USERS.mahbod.name)) && t.assignee==='mahbod')return false;
+            if(meta&&meta.at){
                 const stamp=getFieldSeen(t)[field]?.[currentUser.key];
                 const seenAt=Date.parse(stamp), changedAt=Date.parse(meta.at);
                 return !(Number.isFinite(seenAt)&&Number.isFinite(changedAt)&&seenAt>=changedAt);
@@ -1042,9 +1034,9 @@
             const result=await updateTask(id,{files:[...(t.files||[]),uploaded]}); if(result.error)throw result.error; renderTable(); updateStatusSummary();
         }
         async function toggleVoiceRecording(id,button){
-            if(activeVoiceRecordings.has(id)){activeVoiceRecordings.get(id).stop();return;}
+            if(activeVoiceRecordings.has(id)){const rec=activeVoiceRecordings.get(id);if(rec.state!=='inactive')rec.stop();return;}
             if(!navigator.mediaDevices?.getUserMedia){alert('ضبط صوت در این مرورگر در دسترس نیست. از دکمه انتخاب فایل صوتی استفاده کنید.');return;}
-            try{const stream=await navigator.mediaDevices.getUserMedia({audio:true}), chunks=[]; const rec=new MediaRecorder(stream); activeVoiceRecordings.set(id,rec); rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)}; rec.onstop=async()=>{stream.getTracks().forEach(x=>x.stop());activeVoiceRecordings.delete(id);button.textContent='🎙 ضبط صوت';button.classList.remove('recording');try{await uploadVoiceBlob(id,new Blob(chunks,{type:rec.mimeType||'audio/webm'}));}catch(err){alert('خطا در ذخیره پیام صوتی: '+(err.message||err));}}; rec.start(); button.textContent='⏹ پایان ضبط'; button.classList.add('recording');}
+            try{const stream=await navigator.mediaDevices.getUserMedia({audio:true}), chunks=[]; let mimeType=''; if(typeof MediaRecorder==='undefined')throw new Error('MediaRecorder در این مرورگر پشتیبانی نمی‌شود'); for(const candidate of ['audio/webm;codecs=opus','audio/webm','audio/mp4']){if(!MediaRecorder.isTypeSupported||MediaRecorder.isTypeSupported(candidate)){mimeType=candidate;break;}} const rec=new MediaRecorder(stream,mimeType?{mimeType}:undefined); activeVoiceRecordings.set(id,rec); rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)}; rec.onstop=async()=>{stream.getTracks().forEach(x=>x.stop());activeVoiceRecordings.delete(id);button.textContent='🎙 ضبط صوت';button.classList.remove('recording');const actualType=rec.mimeType||chunks.find(c=>c.type)?.type||'audio/webm';try{await uploadVoiceBlob(id,new Blob(chunks,{type:actualType.split(';')[0]}));}catch(err){alert('خطا در ذخیره پیام صوتی: '+(err.message||err));}}; rec.start(1000); button.textContent='⏹ پایان ضبط'; button.classList.add('recording');}
             catch(err){alert('دسترسی به میکروفون ممکن نشد: '+(err.message||err));}
         }
 
